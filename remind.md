@@ -1,23 +1,41 @@
 # ArchSync
 
-ArchSync는 AI가 프론트엔드 코드베이스의 구조와 규칙을 **신뢰할 수 있는 형태**로 조회하게 해주는 Knowledge Tool이다.
-
-에이전트는 소스 전체를 다시 읽지 않는다. Knowledge Layer를 tool call로 조회한다.
+ArchSync의 핵심은 AI가 아니라, 코드베이스를 분석해서 에이전트가 잘 이해하고 쓸 수 있는 **최신 Context / Knowledge**를 만드는 것이다.
 
 ```
-Codebase
-   ↓
-ArchSync Knowledge Layer     RAW → Context → KNOWLEDGE
-   ↑
-   │ tool call
-Claude Code / Cursor / Agent
+                  Codebase
+                     ↓
+              Static Extraction
+                     ↓
+               RAW Evidence
+                     ↓
+          Knowledge Construction
+                     ↓
+          ┌──────────┴──────────┐
+          ↓                     ↓
+    structured JSON        AI-friendly docs
+          │                     │
+          └──────────┬──────────┘
+                     ↓
+              Context Provider
+                     ↓
+          ┌──────────┼──────────┐
+          ↓          ↓          ↓
+       Claude      Cursor      Agent
 ```
+
+에이전트는 소스 전체를 다시 읽지 않는다. Context Provider가 Knowledge를 조회하게 한 뒤 이 일을 한다.
+
+- "컴포넌트 만들어"
+- "테스트해"
+- "컨벤션 검사해"
+- "디자인 시스템에 맞아?"
 
 신뢰의 조건: Knowledge는 RAW 사실의 부분집합이다.  
 코드에서 **사실만** 뽑아 RAW로 고정하고, LLM은 그 위에 의미만 얹는다.  
 Knowledge가 RAW에 없는 값을 가지면 LLM 문제다.
 
-지금은 Knowledge를 쌓는 단계다. tool call 인터페이스는 아직 아니다.
+지금은 Level 1 API Facts가 artifact로 나온 단계다. Level 2 Semantics가 다음이고, Level 3 Usage Rules는 Button.md에서 추론하지 않는다.
 
 ## 파이프라인
 
@@ -30,19 +48,20 @@ TARGET PROJECT       deeps-www (tsconfig, node_modules, source)
     ▼
 EXTRACTION LAYER     사실만 추출 (의미·설명·추론 금지)
     ▼
-RAW JSON             .knowledge/raw/components/Button.json
+RAW JSON             {target}/.knowledge/raw/components/Button.json
     ▼
-Context Builder      buildKnowledgeInput — 필요한 사실만 조립
+DETERMINISTIC KNOWLEDGE   createComponentKnowledge — LLM 없음
     ▼
-KnowledgeInput       .knowledge/input/components/Button.json
+JSON                 {target}/.knowledge/components/Button.json     SSOT
     ▼
-Prompt + LlmClient   의미만 생성 (ComponentKnowledgeGeneration)
-    ▼
-merge                RAW facts + LLM semantics
-    ▼
-KNOWLEDGE            ComponentKnowledgeSchema
-    ▼
-VALIDATION           Knowledge ⊆ RAW 사실
+Markdown Renderer    {target}/.knowledge/components/Button.md      AI/사람용 표현
+    │
+    ├───────────────┐
+    ▼               ▼
+CLI            Agent Tool
+
+Optional:
+Knowledge → LLM enrichment → summary / description
 ```
 
 예시: RAW `variant`가 `primary | secondary`인데 Knowledge에 `tertiary`가 있으면 LLM 오류다.
@@ -69,13 +88,70 @@ variant: filled | outline | ghost | underline
 루트 `tsconfig`는 ArchSync CLI 본체(`src/`, `tests/`)용이다. `nodenext`, jsx 없음.  
 추출용 program은 target의 tsconfig를 연다. compiler options뿐 아니라 tsconfig에 포함된 source file도 그대로 넣는다. `skipAddingFilesFromTsConfig`는 쓰지 않는다.
 
+## 로드맵
+
+### 완료
+
+```
+SOURCE → EXTRACT → RAW ✅
+                 → CONTEXT BUILDER ✅
+                 → KNOWLEDGE PIPELINE ✅ Mock까지
+```
+
+파이프라인 입구는 있다. 지금은 **LLM 없이 Knowledge JSON + Markdown artifact**를 만든다.
+
+### 지금부터
+
+```
+Level 1 API Facts ✅          Button.json / Button.md
+ ↓
+Level 2 Component Semantics   ← 다음
+ ↓
+Level 3 Usage Rules           Convention Knowledge. Button.md에서 추론 금지
+ ↓
+Agent Tool / Validation / Agent Loop
+```
+
+다음 질문은 API가 아니다.
+
+> Button RAW를 어떤 형태의 AI-friendly Knowledge로 만들어야 Claude Code / Cursor가 최소 context로 잘 사용할까?
+
+이걸 잡으면 ArchSync 정체성이 확실해진다. 실제 OpenAI 연동은 format 뒤에 넣어도 늦지 않다.
+
+## Knowledge Levels
+
+Button Knowledge는 한 문서에 모든 걸 욱여넣지 않는다. 세 층이다.
+
+```
+Level 1  API Facts              ← 지금. Button.json / Button.md
+         type / values / default / optional
+
+Level 2  Component Semantics    ← 다음
+         prop 역할, loading 동작, icon 위치, 컴포넌트 기본 역할
+
+Level 3  Usage Rules            ← 그 다음
+         variant 선택 기준, 공통 Button 강제, 금지 조합, CTA 스타일
+```
+
+Level 1은 코드에서 deterministic하게 나온다. 현재 `Button.md`가 이 층이다.
+
+Level 2는 구현 usage evidence가 있을 때만 붙는 `behavior`다.  
+prop 이름을 hardcoding하지 않는다. RAW에 나온 이름을 구현부에서 추적하고, evidence가 있으면 넣고 없으면 생략한다. `isLoading`이든 `tone`이든 `loading`이든 같다.
+
+Level 3는 컨벤션·디자인 시스템 규칙이다. **Button.md에서 억지로 추론하지 않는다.**  
+"CTA는 filled를 쓴다"는 `variant` union에 없고, 컴포넌트 파일만 봐서는 사실이 아니다. 별도 Convention Knowledge 소스가 필요하다.
+
+에이전트 작업과 층의 대응:
+
+| 질문 | 층 |
+|---|---|
+| allowed values / default가 뭐야? | Level 1 |
+| loading일 때 아이콘은? | Level 2 |
+| 새 Button을 만들어도 돼? CTA는 어떤 variant? | Level 3 |
+
 ## 현재 단계
 
-```
-ComponentRaw → KnowledgeInput → Prompt → LlmClient → merge → KNOWLEDGE
-```
-
-OpenAI/Claude SDK는 아직 붙이지 않는다. `LlmClient` 경계와 Mock으로 파이프라인만 고정한다.
+Level 1 API Facts. `deeps-www/.knowledge/components/Button.md`가 그 산출물이다.
 
 ## Extractor가 답하는 질문 (v0.1)
 
@@ -164,11 +240,11 @@ checker가 union을 못 풀면 `values`를 비우고 `resolvedType`만 적는다
 | 경로                           | 역할                                                    |
 | ------------------------------ | ------------------------------------------------------- |
 | `src/extractor/`               | ts-morph 탐색. 사실만. target project를 연다            |
-| `src/knowledge/`               | Context Builder, prompt, RAW facts + LLM semantics merge |
-| `src/llm/`                     | `LlmClient`. 모델 구현은 아직 없음                       |
-| `src/schema/`                  | RAW / Generation / Knowledge zod 계약                    |
-| `.knowledge/raw/components/`   | 컴포넌트 RAW                                            |
-| `.knowledge/input/components/` | LLM에 넘길 KnowledgeInput                               |
+| `src/knowledge/`               | deterministic Knowledge, Markdown renderer, optional LLM enrichment |
+| `src/llm/`                     | `LlmClient`. 모델 구현은 아직 없음                                  |
+| `src/schema/`                  | RAW / Generation / Knowledge zod 계약                               |
+| `{target}/.knowledge/raw/components/` | 컴포넌트 RAW. ArchSync workspace가 아니라 대상 프로젝트 |
+| `{target}/.knowledge/components/`     | `Button.json` SSOT, `Button.md` 렌더 결과              |
 | `tests/`                       | 추출 결과가 코드와 같은지                               |
 
 지금은 단일 패키지다. `pnpm-workspace.yaml`은 두지 않는다.
@@ -220,15 +296,13 @@ Context Builder    buildKnowledgeInput()
         └─ LLM 친화적 형태로 변환
         │
         ▼
-KnowledgeInput
+createComponentKnowledge()     LLM 없이 유효한 Knowledge
         │
-        ▼
-Prompt + LlmClient     summary / description 만
-        │
-        ├──────────── RAW facts (type, values, default, sources)
-        │
-        ▼
-KNOWLEDGE
+        ├─ JSON SSOT
+        └─ Markdown Renderer   AI-consumable artifact
+
+Optional:
+Knowledge → LLM enrichment → summary / description
 ```
 
 이 계층이 있어서 디버깅이 갈린다.
@@ -244,30 +318,23 @@ KNOWLEDGE
 | `declaredType`                  | 버림. LLM은 선언 문법보다 최종 타입이 필요함 |
 | `resolvedType`                  | `type`                                       |
 | `values` / `defaultValue`       | 그대로                                       |
-| `optional`                      | 아직 안 넣음. `type`의 `undefined`와 겹침    |
+| `optional`                      | Knowledge에 넣음. RAW 확정 fact              |
 | `nativeProps.name` / `expanded` | 버림                                         |
 | `nativeProps.source`            | `nativeProps: string[]`                      |
 | `raw.source` + prop `source`    | `sources`로 모아 중복 제거                   |
 
-Knowledge는 RAW 사실과 LLM 의미를 합친 문서다.
+Knowledge JSON은 SSOT다. Markdown은 사람/AI context용 렌더 결과이지 SSOT가 아니다.
 
 ```
-RAW facts ─────────────────────┐
-                              │
-                              ▼
-                          KNOWLEDGE
-                              ▲
-                              │
-LLM semantics ────────────────┘
+{target}/.knowledge/          예: deeps-www/.knowledge/
+├── raw/components/Button.json
+└── components/
+    ├── Button.json    ← structured knowledge
+    └── Button.md      ← rendered representation
 ```
 
-두 스키마를 섞지 않는다.
+출력은 ArchSync workspace가 아니라 **대상 프로젝트 루트**다. Claude Code / Cursor가 그 프로젝트에서 `.knowledge`를 바로 읽는다.
 
-| 스키마                               | 역할                                                        |
-| ------------------------------------ | ----------------------------------------------------------- |
-| `ComponentKnowledgeGenerationSchema` | LLM이 생성할 수 있는 영역. `summary` + prop `description`만 |
-| `ComponentKnowledgeSchema`           | 최종 ArchSync knowledge. facts + semantics                  |
+Agent가 "Button allowed variant?"를 물으면 Markdown 전체가 아니라 JSON의 `values`만 context로 줄 수 있다.
 
-`type` / `values` / `defaultValue` / `sources`는 LLM output을 믿지 않는다. KnowledgeInput에서 가져온다. LLM이 `invented` prop을 만들어도 merge는 `input.props`만 순회하므로 최종 Knowledge에 안 들어간다.
-
-`LlmClient`만 knowledge pipeline이 안다. OpenAI / Claude / Mock은 adapter다.
+`summary` / `description`은 optional이다. LLM이 없어도 Knowledge는 유효하다. `generateComponentKnowledge()`는 그 위에 의미를 얹는 enrichment다.

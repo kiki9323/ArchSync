@@ -1,8 +1,9 @@
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { extractComponent } from './extractor/component.js';
-import { buildKnowledgeInput } from './knowledge/build-knowledge-input.js';
+import { createComponentKnowledge } from './knowledge/create-component-knowledge.js';
+import { writeComponentKnowledge } from './knowledge/write-component-knowledge.js';
 
 function flag(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -14,32 +15,32 @@ function flag(name: string): string | undefined {
   return process.argv[index + 1];
 }
 
-const projectRoot = path.resolve(flag('--project') ?? '../deeps-www');
-const file = flag('--file') ?? 'src/components/ui/button/button.tsx';
-const propsInterfaceName = flag('--props') ?? 'ButtonProps';
+async function main() {
+  const projectRoot = path.resolve(flag('--project') ?? '../deeps-www');
+  const file = flag('--file') ?? 'src/components/ui/button/button.tsx';
+  const propsInterfaceName = flag('--props') ?? 'ButtonProps';
 
-const result = extractComponent({
-  projectRoot,
-  file,
-  propsInterfaceName,
-});
+  const raw = extractComponent({
+    projectRoot,
+    file,
+    propsInterfaceName,
+  });
 
-const knowledgeInput = buildKnowledgeInput(result);
+  const knowledge = createComponentKnowledge(raw);
 
-const rawDir = path.resolve('.knowledge/raw/components');
-fs.mkdirSync(rawDir, { recursive: true });
-fs.writeFileSync(
-  path.join(rawDir, `${result.component}.json`),
-  `${JSON.stringify(result, null, 2)}\n`,
-);
+  const rawDir = path.join(projectRoot, '.knowledge', 'raw', 'components');
+  await fs.mkdir(rawDir, { recursive: true });
+  await fs.writeFile(
+    path.join(rawDir, `${raw.component}.json`),
+    `${JSON.stringify(raw, null, 2)}\n`,
+    'utf8',
+  );
 
-const inputDir = path.resolve('.knowledge/input/components');
-fs.mkdirSync(inputDir, { recursive: true });
-fs.writeFileSync(
-  path.join(inputDir, `${knowledgeInput.component}.json`),
-  `${JSON.stringify(knowledgeInput, null, 2)}\n`,
-);
+  await writeComponentKnowledge(projectRoot, knowledge);
 
-console.dir(knowledgeInput, {
-  depth: null,
-});
+  console.log(`wrote ${path.join(projectRoot, '.knowledge', 'raw', 'components', `${raw.component}.json`)}`);
+  console.log(`wrote ${path.join(projectRoot, '.knowledge', 'components', `${knowledge.component}.json`)}`);
+  console.log(`wrote ${path.join(projectRoot, '.knowledge', 'components', `${knowledge.component}.md`)}`);
+}
+
+await main();

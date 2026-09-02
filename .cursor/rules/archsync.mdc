@@ -5,13 +5,17 @@ alwaysApply: true
 
 # ArchSync
 
-ArchSync는 AI가 프론트엔드 코드베이스의 구조와 규칙을 신뢰할 수 있는 형태로 조회하는 Knowledge Tool이다.
+ArchSync는 코드베이스를 분석해 에이전트가 소비할 최신 Knowledge를 만든다.
+최종 사용: Agent가 Knowledge를 조회한 뒤 "컴포넌트 만들어 / 테스트해 / 컨벤션 검사해 / 디자인 시스템에 맞아?"를 수행한다.
 프로젝트 목표·단계·RAW 규칙은 루트 `remind.md`가 기준이다. 구현·추출·스키마를 바꿀 때 먼저 읽는다.
 
 ## 불변 조건
 
-- 최종 형태: Agent --tool call--> Knowledge Layer. 소스 전체를 다시 읽히지 않는다
-- 파이프라인: CODE → AST → RAW → KnowledgeInput → LLM → KNOWLEDGE → VALIDATION
+- Knowledge는 세 층이다. Level 1 API Facts / Level 2 Semantics / Level 3 Usage Rules
+- Level 2 `behavior`는 RAW prop 이름을 구현부에서 추적한 뒤에만 채운다. 특정 prop 이름 hardcoding 금지
+- Level 3는 Button.md에서 추론하지 않는다. Convention Knowledge가 따로 필요하다
+- 파이프라인: CODE → AST → RAW → deterministic Knowledge (JSON + Markdown) → optional LLM enrichment
+- Knowledge는 LLM 없이도 유효하다. `summary` / `description`만 optional semantics다
 - LLM에는 소스코드나 RAW 전체를 던지지 않는다. Context Builder가 고른 KnowledgeInput만 준다
 - LLM output은 `summary` / `description`만. type / values / default는 KnowledgeInput 사실이다
 - Knowledge가 RAW에 없는 값을 가지면 LLM 문제다
@@ -23,5 +27,5 @@ ArchSync는 AI가 프론트엔드 코드베이스의 구조와 규칙을 신뢰�
 
 ## 현재 단계
 
-ComponentRaw → KnowledgeInput → Prompt → `LlmClient` → merge → KNOWLEDGE.
-모델 SDK는 아직 붙이지 않는다.
+Level 1 API Facts 완료 (`Button.md`). 다음은 Level 2 Semantics.
+Level 3 Usage Rules는 Button.md에서 추론하지 않는다.
