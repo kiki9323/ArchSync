@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { extractComponent } from './extractor/component.js';
+import { buildKnowledgeInput } from './knowledge/build-knowledge-input.js';
 
 function flag(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -23,13 +24,22 @@ const result = extractComponent({
   propsInterfaceName,
 });
 
-const outDir = path.resolve('.knowledge/raw/components');
-fs.mkdirSync(outDir, { recursive: true });
+const knowledgeInput = buildKnowledgeInput(result);
+
+const rawDir = path.resolve('.knowledge/raw/components');
+fs.mkdirSync(rawDir, { recursive: true });
 fs.writeFileSync(
-  path.join(outDir, `${result.component}.json`),
+  path.join(rawDir, `${result.component}.json`),
   `${JSON.stringify(result, null, 2)}\n`,
 );
 
-console.dir(result, {
+const inputDir = path.resolve('.knowledge/input/components');
+fs.mkdirSync(inputDir, { recursive: true });
+fs.writeFileSync(
+  path.join(inputDir, `${knowledgeInput.component}.json`),
+  `${JSON.stringify(knowledgeInput, null, 2)}\n`,
+);
+
+console.dir(knowledgeInput, {
   depth: null,
 });

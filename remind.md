@@ -1,7 +1,23 @@
 # ArchSync
 
+ArchSync는 AI가 프론트엔드 코드베이스의 구조와 규칙을 **신뢰할 수 있는 형태**로 조회하게 해주는 Knowledge Tool이다.
+
+에이전트는 소스 전체를 다시 읽지 않는다. Knowledge Layer를 tool call로 조회한다.
+
+```
+Codebase
+   ↓
+ArchSync Knowledge Layer     RAW → Context → KNOWLEDGE
+   ↑
+   │ tool call
+Claude Code / Cursor / Agent
+```
+
+신뢰의 조건: Knowledge는 RAW 사실의 부분집합이다.  
 코드에서 **사실만** 뽑아 RAW로 고정하고, LLM은 그 위에 의미만 얹는다.  
 Knowledge가 RAW에 없는 값을 가지면 LLM 문제다.
+
+지금은 Knowledge를 쌓는 단계다. tool call 인터페이스는 아직 아니다.
 
 ## 파이프라인
 
@@ -16,9 +32,17 @@ EXTRACTION LAYER     사실만 추출 (의미·설명·추론 금지)
     ▼
 RAW JSON             .knowledge/raw/components/Button.json
     ▼
-LLM                  의미 / 설명 / 추론
+Context Builder      buildKnowledgeInput — 필요한 사실만 조립
     ▼
-KNOWLEDGE → VALIDATION     Knowledge ⊆ RAW 사실
+KnowledgeInput       .knowledge/input/components/Button.json
+    ▼
+Prompt + LlmClient   의미만 생성 (ComponentKnowledgeGeneration)
+    ▼
+merge                RAW facts + LLM semantics
+    ▼
+KNOWLEDGE            ComponentKnowledgeSchema
+    ▼
+VALIDATION           Knowledge ⊆ RAW 사실
 ```
 
 예시: RAW `variant`가 `primary | secondary`인데 Knowledge에 `tertiary`가 있으면 LLM 오류다.
@@ -48,10 +72,10 @@ variant: filled | outline | ghost | underline
 ## 현재 단계
 
 ```
-deeps-www Button.tsx → AST + Type Checker → Extraction → Button.json
+ComponentRaw → KnowledgeInput → Prompt → LlmClient → merge → KNOWLEDGE
 ```
 
-LLM / Knowledge / Validation은 아직 안 한다.
+OpenAI/Claude SDK는 아직 붙이지 않는다. `LlmClient` 경계와 Mock으로 파이프라인만 고정한다.
 
 ## Extractor가 답하는 질문 (v0.1)
 
@@ -137,12 +161,15 @@ checker가 union을 못 풀면 `values`를 비우고 `resolvedType`만 적는다
 
 ## 폴더
 
-| 경로 | 역할 |
-|---|---|
-| `src/extractor/` | ts-morph 탐색. 사실만. target project를 연다 |
-| `src/schema/` | RAW JSON zod 계약 |
-| `.knowledge/raw/components/` | 컴포넌트 RAW |
-| `tests/` | 추출 결과가 코드와 같은지 |
+| 경로                           | 역할                                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| `src/extractor/`               | ts-morph 탐색. 사실만. target project를 연다            |
+| `src/knowledge/`               | Context Builder, prompt, RAW facts + LLM semantics merge |
+| `src/llm/`                     | `LlmClient`. 모델 구현은 아직 없음                       |
+| `src/schema/`                  | RAW / Generation / Knowledge zod 계약                    |
+| `.knowledge/raw/components/`   | 컴포넌트 RAW                                            |
+| `.knowledge/input/components/` | LLM에 넘길 KnowledgeInput                               |
+| `tests/`                       | 추출 결과가 코드와 같은지                               |
 
 지금은 단일 패키지다. `pnpm-workspace.yaml`은 두지 않는다.
 
@@ -167,8 +194,80 @@ RAW는 `.knowledge/raw/components/`부터 쌓는다. 나중에 `tokens/`, `route
 - `state`는 public prop이 아님
 - default는 구현 destructure: `filled` / `ghost` / `h40` / `r2`
 
-## Knowledge / Validation (나중)
+## Context Engineering
 
-Knowledge: RAW 사실 위의 의미·설명.
+프롬프트를 잘 쓰는 게 전부가 아니다.  
+핵심은 **모델이 판단하는 데 필요한 정보를 어떤 구조로 조립해서 제공할 것인가**다.
 
-Validation: Knowledge가 RAW에 없는 이름/값을 추가했는지 검사.
+RAW는 모든 evidence다. LLM에 RAW 전체나 소스코드 원문을 던지지 않는다.
+
+```
+RAW
+│  모든 evidence
+│
+├─ declaredType
+├─ resolvedType
+├─ source
+├─ optional
+├─ values
+└─ defaultValue
+        │
+        ▼
+Context Builder    buildKnowledgeInput()
+        │
+        ├─ 필요한 사실 선택
+        ├─ 중복 제거
+        └─ LLM 친화적 형태로 변환
+        │
+        ▼
+KnowledgeInput
+        │
+        ▼
+Prompt + LlmClient     summary / description 만
+        │
+        ├──────────── RAW facts (type, values, default, sources)
+        │
+        ▼
+KNOWLEDGE
+```
+
+이 계층이 있어서 디버깅이 갈린다.
+
+- RAW가 틀리면 extractor 문제
+- KnowledgeInput이 빠지거나 중복이면 Context Builder 문제
+- Knowledge가 RAW에 없는 값을 가지면 LLM 문제
+
+### Context Builder가 하는 일
+
+| RAW                             | KnowledgeInput                               |
+| ------------------------------- | -------------------------------------------- |
+| `declaredType`                  | 버림. LLM은 선언 문법보다 최종 타입이 필요함 |
+| `resolvedType`                  | `type`                                       |
+| `values` / `defaultValue`       | 그대로                                       |
+| `optional`                      | 아직 안 넣음. `type`의 `undefined`와 겹침    |
+| `nativeProps.name` / `expanded` | 버림                                         |
+| `nativeProps.source`            | `nativeProps: string[]`                      |
+| `raw.source` + prop `source`    | `sources`로 모아 중복 제거                   |
+
+Knowledge는 RAW 사실과 LLM 의미를 합친 문서다.
+
+```
+RAW facts ─────────────────────┐
+                              │
+                              ▼
+                          KNOWLEDGE
+                              ▲
+                              │
+LLM semantics ────────────────┘
+```
+
+두 스키마를 섞지 않는다.
+
+| 스키마                               | 역할                                                        |
+| ------------------------------------ | ----------------------------------------------------------- |
+| `ComponentKnowledgeGenerationSchema` | LLM이 생성할 수 있는 영역. `summary` + prop `description`만 |
+| `ComponentKnowledgeSchema`           | 최종 ArchSync knowledge. facts + semantics                  |
+
+`type` / `values` / `defaultValue` / `sources`는 LLM output을 믿지 않는다. KnowledgeInput에서 가져온다. LLM이 `invented` prop을 만들어도 merge는 `input.props`만 순회하므로 최종 Knowledge에 안 들어간다.
+
+`LlmClient`만 knowledge pipeline이 안다. OpenAI / Claude / Mock은 adapter다.
