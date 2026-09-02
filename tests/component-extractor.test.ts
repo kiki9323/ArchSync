@@ -49,6 +49,21 @@ describe('extractComponent', () => {
       resolvedType: 'boolean | undefined',
       optional: true,
       defaultValue: false,
+      usage: [
+        {
+          kind: 'conditional',
+          context: 'expression',
+        },
+      ],
     });
+
+    const fullWidthUsage = result.customProps.find((prop) => prop.name === 'fullWidth');
+
+    expect(fullWidthUsage?.usage).toEqual([
+      expect.objectContaining({
+        kind: 'logical-condition',
+        context: 'expression',
+      }),
+    ]);
   });
 });

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { InterfaceDeclaration, Node, Project, Symbol as MorphSymbol, Type } from 'ts-morph';
 
+import { extractPropUsages } from './prop-usage-extractor.js';
 import { ComponentRawSchema, type ComponentRaw } from '../schema/component-raw.js';
 
 export interface ExtractComponentInput {
@@ -350,12 +351,24 @@ export function extractComponent(input: ExtractComponentInput): ComponentRaw {
     }
   }
 
+  const propUsages = extractPropUsages(
+    sourceFile,
+    customProps.map((prop) => prop.name),
+  );
+
   return ComponentRawSchema.parse({
     component: componentName,
 
     source: toProjectPath(projectRoot, sourceFile.getFilePath()),
 
     nativeProps,
-    customProps,
+    customProps: customProps.map((prop) => {
+      const usage = propUsages.get(prop.name);
+
+      return {
+        ...prop,
+        usage: usage && usage.length > 0 ? usage : undefined,
+      };
+    }),
   });
 }

@@ -151,7 +151,7 @@ Level 3는 컨벤션·디자인 시스템 규칙이다. **Button.md에서 억지
 
 ## 현재 단계
 
-Level 1 API Facts. `deeps-www/.knowledge/components/Button.md`가 그 산출물이다.
+Level 1 API Facts 완료. 지금은 구현 usage evidence를 RAW에 붙인다. 자연어 behavior는 아직 아니다.
 
 ## Extractor가 답하는 질문 (v0.1)
 
@@ -253,9 +253,19 @@ RAW는 `.knowledge/raw/components/`부터 쌓는다. 나중에 `tokens/`, `route
 
 ## RAW 규칙
 
-넣는다: export 이름, declared/resolved 타입, optional, union values, 런타임 default, 출처.
+넣는다: export 이름, declared/resolved 타입, optional, union values, 런타임 default, 출처, 구현 usage evidence.
 
-넣지 않는다: 설명, 용도, JSDoc, checker가 안 준 union, recipe DSL 재해석.
+넣지 않는다: 설명, 용도, JSDoc, checker가 안 준 union, recipe DSL 재해석, "spinner를 표시한다" 같은 해석.
+
+```
+RAW
+├── declaration evidence    type / values / optional
+├── implementation evidence default / usage
+└── provenance              source
+```
+
+`usage`는 AST가 본 그대로다. `isLoading ? A : B` → `kind: conditional`. `startIcon && A` → `kind: logical-condition`.  
+parent를 타고 `context: jsx | expression`을 붙인다. 자연어 behavior는 아직 만들지 않는다.
 
 모르면 비운다. 추측해서 채우는 순간 Extraction이 LLM이 된다.
 

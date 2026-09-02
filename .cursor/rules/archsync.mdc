@@ -20,12 +20,12 @@ ArchSync는 코드베이스를 분석해 에이전트가 소비할 최신 Knowle
 - LLM output은 `summary` / `description`만. type / values / default는 KnowledgeInput 사실이다
 - Knowledge가 RAW에 없는 값을 가지면 LLM 문제다
 - 추출 대상은 복붙 fixture가 아니라 target 프론트 프로젝트(deeps-www)의 tsconfig / node_modules / source다
-- Extraction은 사실만. Syntax와 Resolved를 둘 다 기록한다
+- Extraction은 사실만. Syntax, Resolved, 구현 usage evidence를 기록한다. 자연어 behavior는 AST가 만들지 않는다
 - custom/native는 heritage source로 분류한다. native HTML/lib props는 펼치지 않는다
 - recipe/CSS DSL을 직접 이해하지 않는다. TypeScript가 resolve한 최종 타입만 쓴다
 - 모르면 비운다. checker가 안 준 union/default를 채우지 않는다
 
 ## 현재 단계
 
-Level 1 API Facts 완료 (`Button.md`). 다음은 Level 2 Semantics.
-Level 3 Usage Rules는 Button.md에서 추론하지 않는다.
+Level 1 API Facts 완료. 지금은 RAW `usage` evidence (`? :` / `&&`)를 모은다.
+자연어 behavior는 아직 만들지 않는다.

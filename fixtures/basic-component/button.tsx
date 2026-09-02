@@ -14,6 +14,6 @@ export const Button = defineComponent<ButtonProps>(
     fullWidth = false,
     isLoading = false,
   }) => {
-    return null;
+    return isLoading ? null : fullWidth && null;
   },
 );
