@@ -1,0 +1,5 @@
+node_modules/
+.pnpm-store/
+.DS_Store
+.knowledge/
+fixtures/components/

@@ -1,0 +1,23 @@
+---
+description: ArchSync 목표와 RAW 추출 불변 조건. 세션마다 적용.
+alwaysApply: true
+---
+
+# ArchSync
+
+프로젝트 목표·단계·RAW 규칙은 루트 `remind.md`가 기준이다. 구현·추출·스키마를 바꿀 때 먼저 읽는다.
+
+## 불변 조건
+
+- 파이프라인: CODE → AST → RAW → LLM → KNOWLEDGE → VALIDATION
+- 추출 대상은 복붙 fixture가 아니라 target 프론트 프로젝트(deeps-www)의 tsconfig / node_modules / source다
+- Extraction은 사실만. Syntax와 Resolved를 둘 다 기록한다
+- custom/native는 heritage source로 분류한다. native HTML/lib props는 펼치지 않는다
+- recipe/CSS DSL을 직접 이해하지 않는다. TypeScript가 resolve한 최종 타입만 쓴다
+- 모르면 비운다. checker가 안 준 union/default를 채우지 않는다
+- Knowledge가 RAW에 없는 값을 가지면 LLM 문제다
+
+## 현재 단계
+
+`--project deeps-www` → Button.tsx → RAW JSON (`.knowledge/raw/components/`).
+LLM/Knowledge는 아직 하지 않는다.
