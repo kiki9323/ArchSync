@@ -1,28 +1,92 @@
 {
-  "name": "archsync",
+  "name": "archsync-fe",
   "version": "0.1.0",
+  "description": "Extract frontend component Knowledge and help coding agents implement and validate against it.",
   "type": "module",
+  "bin": {
+    "archsync": "./bin/archsync.js"
+  },
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "files": [
+    "bin",
+    "dist",
+    "examples",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm build",
+    "archsync": "tsx src/cli.ts",
     "extract": "tsx src/extract.ts --project ../deeps-www --file src/components/ui/button/button.tsx --props ButtonProps",
+    "sync": "tsx src/cli.ts sync",
+    "watch": "tsx src/cli.ts watch",
+    "docs": "tsx src/cli.ts docs",
+    "check": "tsx src/cli.ts check",
+    "validate": "tsx src/cli.ts validate",
+    "runtime-expect": "tsx src/runtime-expect.ts --project ../deeps-www --component Button",
+    "runtime-observe": "tsx src/runtime-observe.ts --project ../deeps-www --component Button",
+    "runtime-observe-app": "tsx src/runtime-observe.ts --harness app --project ../deeps-www --component Button",
+    "runtime-observe-fixture": "tsx src/runtime-observe.ts --harness fixture --project ../deeps-www --component Button",
+    "context": "tsx src/cli.ts context",
+    "context-search": "tsx src/cli.ts search",
+    "agent-tool": "tsx src/agent-tool.ts",
+    "mcp": "tsx src/cli.ts mcp",
+    "pack:list": "npm pack --dry-run",
+    "smoke:pack": "vitest run tests/report-and-package-smoke.test.ts",
     "test": "vitest",
     "test:run": "vitest run"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kiki9323/ArchSync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kiki9323/ArchSync/issues"
+  },
+  "homepage": "https://github.com/kiki9323/ArchSync#readme",
+  "keywords": [
+    "archsync",
+    "design-system",
+    "component-knowledge",
+    "mcp",
+    "coding-agent"
+  ],
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
       "version": "^11.9.0",
-      "onFail": "download"
+      "onFail": "warn"
     }
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "ts-morph": "^28.0.0",
+    "typescript": "^7.0.2",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
-    "ts-morph": "^28.0.0",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2",
     "vitest": "^4.1.11"
+  },
+  "optionalDependencies": {
+    "playwright": "1.56.1"
   }
 }

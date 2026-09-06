@@ -1,6 +1,10 @@
 import path from 'node:path';
 import { InterfaceDeclaration, Node, Project, Symbol as MorphSymbol, Type } from 'ts-morph';
 
+import {
+  collectJsxAttributeNames,
+  collectNativeBooleanAttributes,
+} from './native-boolean-attributes.js';
 import { extractPropUsages } from './prop-usage-extractor.js';
 import { ComponentRawSchema, type ComponentRaw } from '../schema/component-raw.js';
 
@@ -302,6 +306,7 @@ export function extractComponent(input: ExtractComponentInput): ComponentRaw {
   const defaultValues = extractDefaultValues(sourceFile, componentName);
 
   const nativeProps: ComponentRaw['nativeProps'] = [];
+  const nativeBooleanAttributes: ComponentRaw['nativeBooleanAttributes'] = [];
 
   const customProps: ComponentRaw['customProps'] = [];
 
@@ -331,13 +336,17 @@ export function extractComponent(input: ExtractComponentInput): ComponentRaw {
     if (!declaration || isExternalSource(projectRoot, sourcePath)) {
       nativeProps.push({
         name: symbol?.getName() ?? declaredSource,
-
-        // 사람이 이해할 수 있도록
-        // 원래 heritage 표현을 남긴다.
         source: declaredSource,
-
         expanded: false,
       });
+
+      nativeBooleanAttributes.push(
+        ...collectNativeBooleanAttributes(type, heritage, declaredSource).filter((item) => {
+          return !nativeBooleanAttributes.some(
+            (existing) => existing.prop === item.prop && existing.attribute === item.attribute,
+          );
+        }),
+      );
 
       continue;
     }
@@ -351,6 +360,11 @@ export function extractComponent(input: ExtractComponentInput): ComponentRaw {
     }
   }
 
+  const renderedPropNames = collectJsxAttributeNames(sourceFile, componentName);
+  const observableNativeBooleanAttributes = nativeBooleanAttributes.filter((item) =>
+    renderedPropNames.has(item.prop),
+  );
+
   const propUsages = extractPropUsages(
     sourceFile,
     customProps.map((prop) => prop.name),
@@ -362,6 +376,8 @@ export function extractComponent(input: ExtractComponentInput): ComponentRaw {
     source: toProjectPath(projectRoot, sourceFile.getFilePath()),
 
     nativeProps,
+    nativeBooleanAttributes:
+      observableNativeBooleanAttributes.length > 0 ? observableNativeBooleanAttributes : undefined,
     customProps: customProps.map((prop) => {
       const usage = propUsages.get(prop.name);
 

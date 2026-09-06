@@ -6,15 +6,17 @@ alwaysApply: true
 # ArchSync
 
 ArchSync는 코드베이스를 분석해 에이전트가 소비할 최신 Knowledge를 만든다.
+목표는 컴포넌트 자동 생성이 아니라, AI가 기존 공통 UI 계약을 조회·검증하며 코드베이스에 안전하게 들어오게 하는 것이다.
 최종 사용: Agent가 Knowledge를 조회한 뒤 "컴포넌트 만들어 / 테스트해 / 컨벤션 검사해 / 디자인 시스템에 맞아?"를 수행한다.
-프로젝트 목표·단계·RAW 규칙은 루트 `remind.md`가 기준이다. 구현·추출·스키마를 바꿀 때 먼저 읽는다.
+프로젝트 목표·단계·RAW 규칙은 `docs/architecture.md`가 기준이다. 구현·추출·스키마를 바꿀 때 먼저 읽는다.
+`remind.md`는 로컬 메모이며 저장소에 올리지 않는다.
 
 ## 불변 조건
 
 - Knowledge는 세 층이다. Level 1 API Facts / Level 2 Semantics / Level 3 Usage Rules
 - Level 2 `behavior`는 RAW prop 이름을 구현부에서 추적한 뒤에만 채운다. 특정 prop 이름 hardcoding 금지
-- Level 3는 Button.md에서 추론하지 않는다. Convention Knowledge가 따로 필요하다
-- 파이프라인: CODE → AST → RAW → deterministic Knowledge (JSON + Markdown) → optional LLM enrichment
+- Level 3는 Button.json/Markdown에서 추론하지 않는다. Convention Knowledge가 따로 필요하다
+- 파이프라인: CODE → AST → RAW evidence → Knowledge JSON SSOT → Context / Validation / on-demand Markdown
 - Knowledge는 LLM 없이도 유효하다. `summary` / `description`만 optional semantics다
 - LLM에는 소스코드나 RAW 전체를 던지지 않는다. Context Builder가 고른 KnowledgeInput만 준다
 - LLM output은 `summary` / `description`만. type / values / default는 KnowledgeInput 사실이다
@@ -27,5 +29,7 @@ ArchSync는 코드베이스를 분석해 에이전트가 소비할 최신 Knowle
 
 ## 현재 단계
 
-Level 1 API Facts 완료. 지금은 RAW `usage` evidence (`? :` / `&&`)를 모은다.
-자연어 behavior는 아직 만들지 않는다.
+Runtime Validator: Knowledge → expected → Browser Tool → Observation → compare.
+Browser Tool의 첫 harness는 Storybook이다. App/Fixture는 아직 없다.
+Playwright는 ArchSync optional dependency (target fallback은 호환용).
+Observation: renderChanged + HTML boolean attrs. visibility 금지.

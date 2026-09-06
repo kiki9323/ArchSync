@@ -3,6 +3,7 @@ import {
   type ComponentKnowledge,
 } from '../schema/component-knowledge.js';
 import type { ComponentRaw } from '../schema/component-raw.js';
+import { transformPropBehavior } from './transform-prop-behavior.js';
 
 export function createComponentKnowledge(raw: ComponentRaw): ComponentKnowledge {
   const sources = new Set<string>();
@@ -12,12 +13,15 @@ export function createComponentKnowledge(raw: ComponentRaw): ComponentKnowledge 
   const props = raw.customProps.map((prop) => {
     sources.add(prop.source);
 
+    const behavior = prop.usage?.length ? transformPropBehavior(prop.usage) : undefined;
+
     return {
       name: prop.name,
       type: prop.resolvedType,
       optional: prop.optional,
       values: prop.values,
       defaultValue: prop.defaultValue,
+      behavior,
     };
   });
 
@@ -25,6 +29,10 @@ export function createComponentKnowledge(raw: ComponentRaw): ComponentKnowledge 
     component: raw.component,
     nativeProps: raw.nativeProps.map((nativeProp) => ({
       source: nativeProp.source,
+    })),
+    nativeAttributes: raw.nativeBooleanAttributes?.map((item) => ({
+      prop: item.prop,
+      attribute: item.attribute,
     })),
     props,
     sources: [...sources],

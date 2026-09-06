@@ -1,5 +1,8 @@
 node_modules/
+dist/
+*.tgz
 .pnpm-store/
 .DS_Store
 .knowledge/
 fixtures/components/
+remind.md

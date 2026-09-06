@@ -66,4 +66,33 @@ describe('extractComponent', () => {
       }),
     ]);
   });
+
+  it('collects observable native boolean attributes without flattening them into custom props', () => {
+    const projectRoot = path.resolve('fixtures/native-boolean-attrs');
+
+    const button = extractComponent({
+      projectRoot,
+      file: 'fields.tsx',
+      propsInterfaceName: 'ButtonProps',
+    });
+
+    expect(button.customProps.map((prop) => prop.name)).toEqual(['isLoading', 'fullWidth']);
+    expect(button.nativeBooleanAttributes).toEqual([
+      expect.objectContaining({ prop: 'disabled', attribute: 'disabled' }),
+    ]);
+    expect(button.nativeBooleanAttributes?.some((item) => item.prop === 'hidden')).toBe(false);
+    expect(button.nativeBooleanAttributes?.some((item) => item.prop === 'isLoading')).toBe(false);
+    expect(button.nativeBooleanAttributes?.some((item) => item.prop === 'fullWidth')).toBe(false);
+
+    const input = extractComponent({
+      projectRoot,
+      file: 'fields.tsx',
+      propsInterfaceName: 'InputProps',
+    });
+
+    expect(input.nativeBooleanAttributes).toEqual([
+      expect.objectContaining({ prop: 'readOnly', attribute: 'readonly' }),
+    ]);
+    expect(input.nativeBooleanAttributes?.some((item) => item.prop === 'disabled')).toBe(false);
+  });
 });

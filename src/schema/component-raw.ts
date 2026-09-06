@@ -27,6 +27,15 @@ export const ComponentRawSchema = z.object({
       expanded: z.boolean(),
     }),
   ),
+  nativeBooleanAttributes: z
+    .array(
+      z.object({
+        prop: z.string(),
+        attribute: z.string(),
+        source: z.string(),
+      }),
+    )
+    .optional(),
   customProps: z.array(ComponentPropSchema),
 });
 

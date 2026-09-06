@@ -1,0 +1,57 @@
+# Minimal ArchSync PR gate example.
+#
+# Place this file in your frontend repo as:
+#   .github/workflows/archsync.yml
+#
+# Requires:
+# - shared UI components extractable by ArchSync
+# - `archsync` available via npm (or replace the install step with a git checkout)
+#
+# This workflow keeps Knowledge fresh, then fails the PR when usage violates Knowledge.
+
+name: ArchSync
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'archsync.config.json'
+      - '.knowledge/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+
+jobs:
+  archsync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # After publish, use the scoped package name. Unscoped `archsync` is a different project.
+      #   pnpm add -D archsync-fe@^0.1.0
+      # Until publish, install from git or a local path instead.
+      - name: Install ArchSync CLI
+        run: pnpm add -D archsync-fe@^0.1.0
+
+      - name: Sync Knowledge
+        run: pnpm exec archsync sync --project .
+
+      - name: Validate Button usage (human report)
+        run: pnpm exec archsync check Button --project . --format markdown >> "$GITHUB_STEP_SUMMARY"
+
+      # Add more components as needed:
+      # - run: pnpm exec archsync validate --project . --component LinkButton

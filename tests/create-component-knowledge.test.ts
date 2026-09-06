@@ -14,6 +14,13 @@ const raw: ComponentRaw = {
       expanded: false,
     },
   ],
+  nativeBooleanAttributes: [
+    {
+      prop: 'disabled',
+      attribute: 'disabled',
+      source: 'React.ButtonHTMLAttributes<HTMLButtonElement>',
+    },
+  ],
   customProps: [
     {
       name: 'variant',
@@ -30,6 +37,13 @@ const raw: ComponentRaw = {
       resolvedType: 'boolean | undefined',
       optional: true,
       defaultValue: false,
+      usage: [
+        {
+          kind: 'conditional',
+          context: 'jsx',
+          expression: 'isLoading ? <Spinner /> : children',
+        },
+      ],
       source: 'src/components/ui/button/button.types.ts',
     },
   ],
@@ -50,6 +64,15 @@ describe('createComponentKnowledge', () => {
     expect(knowledge.props.find((prop) => prop.name === 'variant')).not.toHaveProperty(
       'description',
     );
+    expect(knowledge.props.find((prop) => prop.name === 'variant')?.behavior).toBeUndefined();
+    expect(knowledge.props.find((prop) => prop.name === 'isLoading')?.behavior).toEqual([
+      {
+        kind: 'conditional-render',
+        evidence: 'isLoading ? <Spinner /> : children',
+      },
+    ]);
+    expect(knowledge.nativeAttributes).toEqual([{ prop: 'disabled', attribute: 'disabled' }]);
+    expect(knowledge.props.some((prop) => prop.name === 'disabled')).toBe(false);
   });
 });
 
@@ -73,10 +96,13 @@ describe('renderComponentMarkdown', () => {
 - Type: \`boolean | undefined\`
 - Optional: yes
 - Default: \`false\`
+- Behavior:
+  - Conditional render
 
 ## Native Props
 
 - \`React.ButtonHTMLAttributes<HTMLButtonElement>\`
+- Observable: \`disabled\`
 
 ## Sources
 
@@ -84,7 +110,7 @@ describe('renderComponentMarkdown', () => {
 - \`src/components/ui/button/button.types.ts\``);
   });
 
-  it('renders behavior only when usage evidence exists', () => {
+  it('renders structured behavior kinds without interpreting meaning', () => {
     const markdown = renderComponentMarkdown({
       component: 'Chip',
       nativeProps: [],
@@ -94,7 +120,16 @@ describe('renderComponentMarkdown', () => {
           name: 'tone',
           type: 'string',
           optional: true,
-          behavior: 'Sets the visual tone of the chip.',
+          behavior: [
+            {
+              kind: 'conditional-render',
+              evidence: 'tone && <Badge />',
+            },
+            {
+              kind: 'conditional-logic',
+              evidence: 'tone && compact',
+            },
+          ],
         },
         {
           name: 'label',
@@ -105,9 +140,25 @@ describe('renderComponentMarkdown', () => {
     });
 
     expect(markdown).toContain('### tone');
-    expect(markdown).toContain('- Behavior: Sets the visual tone of the chip.');
+    expect(markdown).toContain('- Behavior:');
+    expect(markdown).toContain('  - Conditional render');
+    expect(markdown).toContain('  - Conditional logic');
+    expect(markdown).not.toContain('Sets the visual tone');
+    expect(markdown).not.toContain('tone && <Badge />');
 
     const labelSection = markdown.split('### label')[1] ?? '';
     expect(labelSection).not.toContain('- Behavior:');
+  });
+
+  it('renders React prop to HTML attribute mapping when names differ', () => {
+    const markdown = renderComponentMarkdown({
+      component: 'Input',
+      nativeProps: [{ source: 'React.InputHTMLAttributes<HTMLInputElement>' }],
+      nativeAttributes: [{ prop: 'readOnly', attribute: 'readonly' }],
+      sources: ['input.tsx'],
+      props: [],
+    });
+
+    expect(markdown).toContain('- Observable: `readOnly` → `readonly`');
   });
 });
