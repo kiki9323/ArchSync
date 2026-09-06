@@ -38,6 +38,7 @@ export function createComponentFingerprint(input: {
   aliases: string[];
 }): string {
   const payload = {
+    extractorVersion: 3,
     modulePath: input.modulePath,
     exportName: input.exportName,
     propsInterfaceName: input.propsInterfaceName ?? null,

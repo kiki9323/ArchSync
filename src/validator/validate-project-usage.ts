@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 import { Project, ts } from 'ts-morph';
@@ -46,6 +47,7 @@ export async function validateProjectUsage(
     : await collectSourceFiles(path.join(projectRoot, 'src'));
 
   const project = new Project({
+    ...(existsSync(path.join(projectRoot, 'tsconfig.json')) ? { tsConfigFilePath: path.join(projectRoot, 'tsconfig.json') } : {}),
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, allowJs: true },
     skipAddingFilesFromTsConfig: true,
   });

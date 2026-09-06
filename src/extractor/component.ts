@@ -1,5 +1,7 @@
+import { getComponentCallable, resolveComponentProps } from './resolve-component-props.js';
+export { resolvePropsDeclaration } from './resolve-component-props.js';
 import path from 'node:path';
-import { InterfaceDeclaration, Node, Project, Symbol as MorphSymbol, Type } from 'ts-morph';
+import { Node, Project, Type } from 'ts-morph';
 
 import {
   collectJsxAttributeNames,
@@ -20,7 +22,9 @@ export interface ExtractComponentInput {
    */
   file: string;
 
-  propsInterfaceName: string;
+  propsInterfaceName?: string;
+  project?: Project;
+  componentName?: string;
 }
 
 type DefaultValue = string | number | boolean | null;
@@ -62,13 +66,6 @@ function getLiteralValues(type: Type): string[] | undefined {
   }
 
   return unionTypes.map((unionType) => String(unionType.getLiteralValue()));
-}
-
-/**
- * ts-morph Symbol이 가리키는 실제 declaration을 가져온다.
- */
-function getSymbolDeclaration(symbol: MorphSymbol) {
-  return symbol.getDeclarations()[0];
 }
 
 /**
@@ -167,28 +164,8 @@ function extractDefaultValues(
 ): Map<string, DefaultValue> {
   const defaults = new Map<string, DefaultValue>();
 
-  const variable = sourceFile.getVariableDeclaration(componentName);
-
-  if (!variable) {
-    return defaults;
-  }
-
-  const initializer = variable.getInitializer();
-
-  if (!initializer || !Node.isCallExpression(initializer)) {
-    return defaults;
-  }
-
-  // React.forwardRef(
-  //   (...) => ...
-  // )
-  //
-  // 첫 번째 argument가 component callback
-  const callback = initializer.getArguments()[0];
-
-  if (!callback || !Node.isArrowFunction(callback)) {
-    return defaults;
-  }
+  const callback = getComponentCallable(sourceFile, componentName);
+  if (!callback) return defaults;
 
   // ({ variant = 'filled' }, ref)
   //  ↑
@@ -220,52 +197,10 @@ function extractDefaultValues(
       continue;
     }
 
-    defaults.set(element.getName(), defaultValue);
+    defaults.set(element.getPropertyNameNode()?.getText() ?? element.getName(), defaultValue);
   }
 
   return defaults;
-}
-
-/**
- * target project 내부 interface에서
- * custom prop 정보를 추출한다.
- */
-function extractCustomProps(
-  projectRoot: string,
-  declaration: InterfaceDeclaration,
-  defaultValues: Map<string, DefaultValue>,
-): ComponentRaw['customProps'] {
-  return declaration.getProperties().map((property) => {
-    const type = property.getType();
-    const typeNode = property.getTypeNode();
-
-    const name = property.getName();
-
-    return {
-      name,
-
-      // 코드에 실제로 선언된 타입
-      //
-      // ButtonVariants['variant']
-      declaredType: typeNode?.getText() ?? 'unknown',
-
-      // TypeScript가 최종적으로 계산한 타입
-      //
-      // "filled" | "outline" | ... | undefined
-      resolvedType: type.getText(property),
-
-      // literal union인 경우 실제 값
-      values: getLiteralValues(type),
-
-      optional: property.hasQuestionToken(),
-
-      // component implementation에서
-      // 추출한 default
-      defaultValue: defaultValues.get(name),
-
-      source: toProjectPath(projectRoot, property.getSourceFile().getFilePath()),
-    };
-  });
 }
 
 /**
@@ -289,15 +224,16 @@ export function extractComponent(input: ExtractComponentInput): ComponentRaw {
    * 따라서 React / vanilla-extract 등의
    * 실제 TypeScript context를 사용할 수 있다.
    */
-  const project = new Project({
+  const project = input.project ?? new Project({
     tsConfigFilePath,
   });
 
   const sourceFile = project.getSourceFile(filePath) ?? project.addSourceFileAtPath(filePath);
 
-  const propsInterface = sourceFile.getInterfaceOrThrow(input.propsInterfaceName);
-
-  const componentName = input.propsInterfaceName.replace(/Props$/, '');
+  const componentName = input.componentName ?? input.propsInterfaceName?.replace(/Props$/, '');
+  if (!componentName) throw new Error('componentName or propsInterfaceName is required');
+  const props = resolveComponentProps(sourceFile, componentName, input.propsInterfaceName);
+  const propsInterface = props.location;
 
   /**
    * Button.tsx implementation에서
@@ -306,67 +242,55 @@ export function extractComponent(input: ExtractComponentInput): ComponentRaw {
   const defaultValues = extractDefaultValues(sourceFile, componentName);
 
   const nativeProps: ComponentRaw['nativeProps'] = [];
-  const nativeBooleanAttributes: ComponentRaw['nativeBooleanAttributes'] = [];
+  const nativeBooleanAttributes: NonNullable<ComponentRaw['nativeBooleanAttributes']> = [];
 
   const customProps: ComponentRaw['customProps'] = [];
 
-  /**
-   * example:
-   *
-   * interface ButtonProps
-   *   extends
-   *     React.ButtonHTMLAttributes<HTMLButtonElement>,
-   *     CommonButtonProps {}
-   */
-  for (const heritage of propsInterface.getExtends()) {
-    const declaredSource = heritage.getText();
-
-    const type = heritage.getType();
-
-    const symbol = type.getSymbol() ?? type.getAliasSymbol();
-
-    const declaration = symbol ? getSymbolDeclaration(symbol) : undefined;
-
-    const sourcePath = declaration?.getSourceFile().getFilePath() ?? '';
-
-    /**
-     * React.ButtonHTMLAttributes 같은
-     * external type은 펼치지 않는다.
-     */
-    if (!declaration || isExternalSource(projectRoot, sourcePath)) {
-      nativeProps.push({
-        name: symbol?.getName() ?? declaredSource,
-        source: declaredSource,
-        expanded: false,
-      });
-
-      nativeBooleanAttributes.push(
-        ...collectNativeBooleanAttributes(type, heritage, declaredSource).filter((item) => {
-          return !nativeBooleanAttributes.some(
-            (existing) => existing.prop === item.prop && existing.attribute === item.attribute,
-          );
-        }),
-      );
-
-      continue;
+  const visited = new Set<Type>();
+  function collectNative(type: Type, location: Node, declaredSource: string): void {
+    if (visited.has(type)) return;
+    visited.add(type);
+    if (type.isIntersection()) {
+      for (const part of type.getIntersectionTypes()) collectNative(part, location, part.getText(location));
+      return;
     }
-
-    /**
-     * target project 내부 interface라면
-     * design-system custom props로 취급한다.
-     */
-    if (Node.isInterfaceDeclaration(declaration)) {
-      customProps.push(...extractCustomProps(projectRoot, declaration, defaultValues));
+    const symbol = type.getSymbol() ?? type.getAliasSymbol();
+    const declaration = symbol?.getDeclarations()[0];
+    if (declaration && isExternalSource(projectRoot, declaration.getSourceFile().getFilePath())) {
+      nativeProps.push({ name: symbol!.getName(), source: declaredSource, expanded: false });
+      for (const attribute of collectNativeBooleanAttributes(type, location, declaredSource)) {
+        if (!nativeBooleanAttributes.some(item => item.prop === attribute.prop && item.attribute === attribute.attribute)) nativeBooleanAttributes.push(attribute);
+      }
+      return;
+    }
+    if (declaration && Node.isInterfaceDeclaration(declaration)) {
+      for (const heritage of declaration.getExtends()) collectNative(heritage.getType(), heritage, heritage.getText());
     }
   }
+  if (props.type) collectNative(props.type, propsInterface, props.location.getText());
 
+  // Resolve the complete type, including aliases, intersections and inherited props.
+  for (const symbol of (props.type?.getProperties() ?? [])) {
+    const property = symbol.getDeclarations()[0];
+    if (!property || isExternalSource(projectRoot, property.getSourceFile().getFilePath())) continue;
+    const type = symbol.getTypeAtLocation(propsInterface);
+    customProps.push({
+      name: symbol.getName(),
+      declaredType: Node.isPropertySignature(property) ? property.getTypeNode()?.getText() ?? 'unknown' : type.getText(property),
+      resolvedType: type.getText(propsInterface),
+      values: getLiteralValues(type),
+      optional: symbol.isOptional(),
+      defaultValue: defaultValues.get(symbol.getName()),
+      source: toProjectPath(projectRoot, property.getSourceFile().getFilePath()),
+    });
+  }
   const renderedPropNames = collectJsxAttributeNames(sourceFile, componentName);
   const observableNativeBooleanAttributes = nativeBooleanAttributes.filter((item) =>
     renderedPropNames.has(item.prop),
   );
 
   const propUsages = extractPropUsages(
-    sourceFile,
+    getComponentCallable(sourceFile, componentName) ?? sourceFile,
     customProps.map((prop) => prop.name),
   );
 

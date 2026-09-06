@@ -29,7 +29,7 @@ export async function runSyncCommand(argv: string[]): Promise<number> {
 
   await writeCommandOutput(argv, formatSync(result, format));
 
-  return result.summary.failed > 0 ? 1 : 0;
+  return result.summary.failed > 0 || (hasFlag(argv, '--strict') && (result.summary.skipped > 0 || result.summary.discovered === 0)) ? 1 : 0;
 }
 
 export async function runWatchCommand(argv: string[]): Promise<number> {
@@ -115,7 +115,7 @@ export async function runValidateCommand(argv: string[]): Promise<number> {
 
   await writeCommandOutput(argv, formatValidation(result, format));
 
-  return validationExitCode(result);
+  return hasFlag(argv, '--strict') && result.status !== 'passed' ? 1 : validationExitCode(result);
 }
 
 /**
@@ -127,7 +127,7 @@ export async function runCheckCommand(argv: string[]): Promise<number> {
 
   await writeCommandOutput(argv, formatValidation(result, format));
 
-  return validationExitCode(result);
+  return hasFlag(argv, '--strict') && result.status !== 'passed' ? 1 : validationExitCode(result);
 }
 
 export async function runContextCommand(argv: string[]): Promise<number> {

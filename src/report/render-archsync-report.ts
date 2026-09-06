@@ -53,6 +53,7 @@ function renderValidationText(result: ComponentValidationResult): string {
     lines.push(`- files checked: ${result.summary.filesScanned}`);
     lines.push(`- components checked: 1`);
     lines.push(`- usages: ${result.summary.usages}`);
+    lines.push(`- checked: ${result.summary.checked}`);
     lines.push(`- passed: ${result.summary.passed}`);
     lines.push(`- failed: ${result.summary.failed}`);
     lines.push(`- unknown: ${result.summary.unknown}`);
@@ -156,6 +157,7 @@ function renderValidationMarkdown(result: ComponentValidationResult): string {
     lines.push(`| files checked | ${result.summary.filesScanned} |`);
     lines.push('| components checked | 1 |');
     lines.push(`| usages | ${result.summary.usages} |`);
+    lines.push(`| checked | ${result.summary.checked} |`);
     lines.push(`| passed | ${result.summary.passed} |`);
     lines.push(`| failed | ${result.summary.failed} |`);
     lines.push(`| unknown | ${result.summary.unknown} |`);
@@ -246,7 +248,7 @@ function renderSyncText(result: KnowledgeSyncResult): string {
     `- deleted: ${result.summary.deleted}`,
     `- skipped: ${result.summary.skipped}`,
     `- failed: ${result.summary.failed}`,
-    `- extracted: ${result.summary.extracted}`,
+    `- extracted: ${result.coverage?.extracted ?? result.summary.extracted}`,
   ];
 
   const failed = result.components.filter(
@@ -282,7 +284,7 @@ function renderSyncMarkdown(result: KnowledgeSyncResult): string {
     `| deleted | ${result.summary.deleted} |`,
     `| skipped | ${result.summary.skipped} |`,
     `| failed | ${result.summary.failed} |`,
-    `| extracted | ${result.summary.extracted} |`,
+    `| extracted | ${result.coverage?.extracted ?? result.summary.extracted} |`,
   ];
 
   const failed = result.components.filter(

@@ -19,10 +19,13 @@ describe('discoverComponents', () => {
         modulePath: 'src/components/shared/broken.tsx',
         exportName: 'Broken',
         propsInterfaceName: 'BrokenProps',
+        propsResolution: 'interface',
         reason: 'named-react-component-export',
       },
       {
         name: 'Card',
+        propsInterfaceName: 'CardProps',
+        propsResolution: 'type-alias',
         modulePath: 'src/components/shared/card.tsx',
         exportName: 'Card',
         reason: 'named-react-component-export',
@@ -32,6 +35,7 @@ describe('discoverComponents', () => {
         modulePath: 'src/components/ui/button.tsx',
         exportName: 'Button',
         propsInterfaceName: 'ButtonProps',
+        propsResolution: 'interface',
         reason: 'named-react-component-export',
       },
       {
@@ -39,6 +43,7 @@ describe('discoverComponents', () => {
         modulePath: 'src/components/ui/modal.tsx',
         exportName: 'Modal',
         propsInterfaceName: 'ModalProps',
+        propsResolution: 'interface',
         reason: 'default-react-component-export',
       },
     ]);

@@ -38,7 +38,7 @@ export function collectNativeBooleanAttributes(
 /** 해당 컴포넌트 JSX에 실제로 적힌 React prop만 host에서 관측 가능하다. `{...props}` spread는 제외. */
 export function collectJsxAttributeNames(sourceFile: SourceFile, componentName: string): Set<string> {
   const names = new Set<string>();
-  const scope = sourceFile.getVariableDeclaration(componentName) ?? sourceFile;
+  const scope = sourceFile.getVariableDeclaration(componentName) ?? sourceFile.getFunction(componentName) ?? sourceFile;
 
   for (const attr of scope.getDescendantsOfKind(SyntaxKind.JsxAttribute)) {
     names.add(attr.getNameNode().getText());

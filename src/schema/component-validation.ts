@@ -17,7 +17,7 @@ export const ValidationUnknownSchema = z.object({
   line: z.number().int(),
   component: z.string(),
   prop: z.string(),
-  reason: z.enum(['knowledge has no finite values', 'dynamic expression']),
+  reason: z.enum(['knowledge has no finite values', 'dynamic expression', 'spread attribute']),
 });
 
 export const ValidationSummarySchema = z.object({
@@ -38,7 +38,7 @@ export const MissingValidationResultSchema = z.object({
 });
 
 export const StaticValidationResultSchema = z.object({
-  status: z.enum(['passed', 'failed', 'unknown']),
+  status: z.enum(['passed', 'failed', 'unknown', 'partial', 'not-checked']),
   mode: z.literal('static'),
   component: z.string(),
   knowledge: z.string(),
@@ -57,7 +57,7 @@ export const RuntimeSkipSchema = z.object({
 });
 
 export const RuntimeValidationResultSchema = z.object({
-  status: z.enum(['passed', 'failed', 'unknown']),
+  status: z.enum(['passed', 'failed', 'unknown', 'partial', 'not-checked']),
   mode: z.literal('runtime'),
   harness: ValidateHarnessSchema,
   component: z.string(),

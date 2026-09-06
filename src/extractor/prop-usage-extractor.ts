@@ -1,8 +1,8 @@
-import { Node, type SourceFile } from 'ts-morph';
+import { Node } from 'ts-morph';
 
 import type { PropUsage } from '../schema/component-raw.js';
 
-export function extractPropUsages(sourceFile: SourceFile, propNames: string[]): Map<string, PropUsage[]> {
+export function extractPropUsages(sourceFile: Node, propNames: string[]): Map<string, PropUsage[]> {
   const usages = new Map<string, PropUsage[]>();
 
   for (const propName of propNames) {

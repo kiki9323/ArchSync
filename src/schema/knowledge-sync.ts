@@ -14,6 +14,7 @@ export const KnowledgeSyncConfigSchema = z.object({
 export const ComponentDiscoveryReasonSchema = z.enum([
   'named-react-component-export',
   'default-react-component-export',
+  'compound-react-component-export',
 ]);
 
 export const DiscoveredComponentSchema = z.object({
@@ -21,6 +22,8 @@ export const DiscoveredComponentSchema = z.object({
   modulePath: z.string(),
   exportName: z.string(),
   propsInterfaceName: z.string().optional(),
+  propsResolution: z.enum(['interface', 'type-alias', 'imported', 'inline', 'component-props', 'inferred', 'no-props']).optional(),
+  propsReason: z.string().optional(),
   reason: ComponentDiscoveryReasonSchema,
 });
 
@@ -55,6 +58,12 @@ export const KnowledgeSyncResultSchema = z.object({
     failed: z.number().int().nonnegative(),
     extracted: z.number().int().nonnegative(),
   }),
+  coverage: z.object({
+    discovered: z.number().int().nonnegative(),
+    extracted: z.number().int().nonnegative(),
+    skipped: z.number().int().nonnegative(),
+    failed: z.number().int().nonnegative(),
+  }).optional(),
   components: z.array(SyncComponentResultSchema),
 });
 

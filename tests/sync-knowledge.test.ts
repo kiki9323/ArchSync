@@ -24,6 +24,7 @@ async function temporaryProject(): Promise<string> {
     recursive: true,
   });
 
+  await fs.rm(path.join(projectRoot, '.knowledge'), { recursive: true, force: true });
   return projectRoot;
 }
 
@@ -38,7 +39,7 @@ describe('syncKnowledge', () => {
       },
       {
         extract(input) {
-          extractionInputs.push(input.propsInterfaceName);
+          extractionInputs.push(input.propsInterfaceName ?? input.componentName!);
 
           if (input.propsInterfaceName === 'BrokenProps') {
             throw new Error('intentional extraction failure');
@@ -52,16 +53,17 @@ describe('syncKnowledge', () => {
     expect(result.mode).toBe('incremental-sync');
     expect(result.summary).toEqual({
       discovered: 4,
-      created: 2,
+      created: 3,
       updated: 0,
       unchanged: 0,
       deleted: 0,
-      skipped: 1,
+      skipped: 0,
       failed: 1,
-      extracted: 3,
+      extracted: 4,
     });
     expect(extractionInputs).toEqual([
       'BrokenProps',
+      'CardProps',
       'ButtonProps',
       'ModalProps',
     ]);
@@ -99,7 +101,7 @@ describe('syncKnowledge', () => {
 
     const second = await syncKnowledge(input, {
       extract(extractInput) {
-        extractionInputs.push(extractInput.propsInterfaceName);
+        extractionInputs.push(extractInput.propsInterfaceName ?? extractInput.componentName!);
         return extractComponent(extractInput);
       },
     });
@@ -142,7 +144,7 @@ describe('syncKnowledge', () => {
 
     const result = await syncKnowledge(input, {
       extract(extractInput) {
-        extractionInputs.push(extractInput.propsInterfaceName);
+        extractionInputs.push(extractInput.propsInterfaceName ?? extractInput.componentName!);
         return extractComponent(extractInput);
       },
     });
@@ -221,7 +223,7 @@ export const Button = defineComponent<ButtonProps>(
 
     const result = await syncKnowledge(input, {
       extract(extractInput) {
-        extractionInputs.push(extractInput.propsInterfaceName);
+        extractionInputs.push(extractInput.propsInterfaceName ?? extractInput.componentName!);
         return extractComponent(extractInput);
       },
     });
@@ -260,7 +262,7 @@ export const Button = defineComponent<ButtonProps>(
 
     const result = await syncKnowledge(input, {
       extract(extractInput) {
-        extractionInputs.push(extractInput.propsInterfaceName);
+        extractionInputs.push(extractInput.propsInterfaceName ?? extractInput.componentName!);
         return extractComponent(extractInput);
       },
     });
@@ -322,7 +324,7 @@ export const Button = defineComponent<ButtonProps>(
     );
 
     expect(result.summary.failed).toBe(1);
-    expect(result.summary.created).toBe(2);
+    expect(result.summary.created).toBe(3);
 
     const search = await searchComponentContexts(projectRoot, 'button');
 

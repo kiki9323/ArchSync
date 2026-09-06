@@ -6,3 +6,14 @@ dist/
 .knowledge/
 fixtures/components/
 remind.md
+
+# Local deeps-www coverage/audit artifacts
+/reports/deeps-www-coverage/
+/reports/deeps-www-0.1.0-audit/
+/scripts/audit-export-shapes.mjs
+/scripts/audit-policy-matrix.mjs
+/scripts/compare-extractor-coverage.mjs
+/scripts/measure-extractor-coverage.mjs
+/scripts/prepare-deeps-audit.mjs
+/scripts/run-deeps-version-audit.mjs
+/scripts/run-integration-audit.py

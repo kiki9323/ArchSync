@@ -81,7 +81,7 @@ export function serializeRuntimeValidation(input: {
   const passed = countComparison(comparisons, 'pass');
   const failed = countComparison(comparisons, 'fail');
   const unknown =
-    countComparison(comparisons, 'missing') + input.produced.skipped.length;
+    countComparison(comparisons, 'missing');
 
   return RuntimeValidationResultSchema.parse({
     status: runtimeStatus({ passed, failed, unknown }),
@@ -90,7 +90,7 @@ export function serializeRuntimeValidation(input: {
     component: input.component,
     knowledge: input.knowledgePath,
     summary: {
-      checked: comparisons.length,
+      checked: passed + failed,
       passed,
       failed,
       unknown,
@@ -239,6 +239,8 @@ function runtimeStatus(input: {
     return 'unknown';
   }
 
+  if (input.passed === 0) return 'not-checked';
+  if (input.unknown > 0) return 'partial';
   return 'passed';
 }
 

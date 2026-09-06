@@ -1,3 +1,4 @@
+import { resolveComponentProps } from '../extractor/resolve-component-props.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -113,6 +114,31 @@ function discoverSourceFile(
     }
   }
 
+  // Public compound APIs, e.g. export const Tabs = { Root: TabsRoot }.
+  // Keep the implementation name for extraction and the public member path for provenance.
+  for (const [exportName, declarations] of sourceFile.getExportedDeclarations()) {
+    for (const declaration of declarations) {
+      if (declaration.getSourceFile() !== sourceFile) continue;
+      if (Node.isFunctionDeclaration(declaration) || Node.isVariableDeclaration(declaration)) {
+        const name = declaration.getName();
+        if (name && isPascalCase(name) && hasJsx(declaration) && !result.some(item => item.name === name)) {
+          result.push(createDiscoveredComponent(projectRoot, sourceFile, name, 'named-react-component-export', exportName));
+        }
+      }
+      if (!Node.isVariableDeclaration(declaration)) continue;
+      const initializer = declaration.getInitializer();
+      if (!initializer || !Node.isObjectLiteralExpression(initializer)) continue;
+      for (const property of initializer.getProperties()) {
+        if (!Node.isPropertyAssignment(property) && !Node.isShorthandPropertyAssignment(property)) continue;
+        const value = Node.isPropertyAssignment(property) ? property.getInitializer() : property.getNameNode();
+        if (!value || !Node.isIdentifier(value)) continue;
+        const name = value.getText();
+        const target = sourceFile.getFunction(name) ?? sourceFile.getVariableDeclaration(name);
+        if (!target || !isPascalCase(name) || !hasJsx(target) || result.some(item => item.name === name)) continue;
+        result.push(createDiscoveredComponent(projectRoot, sourceFile, name, 'compound-react-component-export', `${exportName}.${property.getName()}`));
+      }
+    }
+  }
   return result;
 }
 
@@ -121,16 +147,26 @@ function createDiscoveredComponent(
   sourceFile: SourceFile,
   name: string,
   reason: ComponentDiscoveryReason,
+  exportName = name,
 ): DiscoveredComponent {
-  const propsInterfaceName = `${name}Props`;
+  let propsInterfaceName: string | undefined;
+  let propsResolution: string | undefined;
+  let propsReason: string | undefined;
+  try {
+    const props = resolveComponentProps(sourceFile, name);
+    propsInterfaceName = props.name;
+    propsResolution = props.kind;
+  } catch (error) {
+    propsReason = error instanceof Error ? error.message : String(error);
+  }
 
   return DiscoveredComponentSchema.parse({
     name,
     modulePath: toProjectPath(projectRoot, sourceFile.getFilePath()),
-    exportName: name,
-    propsInterfaceName: sourceFile.getInterface(propsInterfaceName)
-      ? propsInterfaceName
-      : undefined,
+    exportName,
+    propsInterfaceName,
+    propsResolution,
+    propsReason,
     reason,
   });
 }

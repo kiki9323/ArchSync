@@ -88,11 +88,11 @@ export async function syncKnowledge(
 
     syncedNames.add(candidate.name);
 
-    if (!candidate.propsInterfaceName) {
+    if (!candidate.propsInterfaceName && !candidate.propsResolution) {
       components.push({
         ...base,
         status: 'skipped',
-        reason: 'props-interface-not-found',
+        reason: candidate.propsReason ?? 'props-interface-not-found',
       });
       continue;
     }
@@ -143,6 +143,7 @@ export async function syncKnowledge(
         candidate,
         extract,
         aliases,
+        project: analysisProject,
       });
 
       nextComponents[candidate.name] = {
@@ -203,6 +204,7 @@ export async function syncKnowledge(
     project: projectRoot,
     componentRoots,
     summary: summarize(discovered.length, components, extracted),
+    coverage: { discovered: discovered.length, extracted: count(components, 'created') + count(components, 'updated') + count(components, 'unchanged'), skipped: count(components, 'skipped'), failed: count(components, 'failed') },
     components,
   });
 }
@@ -212,10 +214,11 @@ async function extractAndWrite(input: {
   candidate: DiscoveredComponent;
   extract: typeof extractComponent;
   aliases: string[];
+  project: Project;
 }): Promise<'created' | 'updated'> {
   const { projectRoot, candidate, extract, aliases } = input;
 
-  if (!candidate.propsInterfaceName) {
+  if (!candidate.propsInterfaceName && !candidate.propsResolution) {
     throw new Error('props-interface-not-found');
   }
 
@@ -223,6 +226,8 @@ async function extractAndWrite(input: {
     projectRoot,
     file: candidate.modulePath,
     propsInterfaceName: candidate.propsInterfaceName,
+    componentName: candidate.name,
+    project: input.project,
   });
   const previousKnowledge = await readPreviousKnowledge(
     projectRoot,

@@ -48,5 +48,7 @@ function staticStatus(input: {
     return 'unknown';
   }
 
+  if (input.checked === 0) return 'not-checked';
+  if (input.unknown > 0) return 'partial';
   return 'passed';
 }

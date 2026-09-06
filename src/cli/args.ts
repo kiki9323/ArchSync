@@ -94,6 +94,7 @@ Commands:
   help                 Show this help
 
 Common options:
+  --strict            Fail sync/check/validate on incomplete coverage
   --project <path>     Frontend project root (default: .)
   --format <text|json|markdown>
   --output <file>      Write report to a file (check)

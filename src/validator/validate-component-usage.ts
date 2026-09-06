@@ -1,8 +1,9 @@
+import path from 'node:path';
 import { Node, type SourceFile } from 'ts-morph';
 
 import type { ComponentKnowledge } from '../schema/component-knowledge.js';
 
-export type UsageUnknownReason = 'knowledge has no finite values' | 'dynamic expression';
+export type UsageUnknownReason = 'knowledge has no finite values' | 'dynamic expression' | 'spread attribute';
 
 export interface UsageViolation {
   file: string;
@@ -51,7 +52,17 @@ export function validateComponentUsage(
       return;
     }
 
-    if (node.getTagNameNode().getText() !== knowledge.component) {
+    const tag = node.getTagNameNode();
+    const symbol = tag.getSymbol();
+    const resolved = symbol?.isAlias() ? symbol.getAliasedSymbol() : symbol;
+    const declarations = resolved?.getDeclarations() ?? [];
+    const matchesSource = declarations.some(declaration => {
+      const filePath = declaration.getSourceFile().getFilePath().split(path.sep).join('/');
+      return knowledge.sources.some(source => filePath === source || filePath.endsWith('/' + source));
+    });
+    const matchesName = resolved?.getName() === knowledge.component;
+    const imported = symbol?.getDeclarations().some(d => Node.isImportSpecifier(d) || Node.isImportClause(d));
+    if (!(matchesSource && matchesName) && !(tag.getText() === knowledge.component && !imported && declarations.length === 0)) {
       return;
     }
 
@@ -59,6 +70,7 @@ export function validateComponentUsage(
 
     for (const attribute of node.getAttributes()) {
       if (!Node.isJsxAttribute(attribute)) {
+        unknown.push({ file, line: attribute.getStartLineNumber(), component: knowledge.component, prop: '*', reason: 'spread attribute' });
         continue;
       }
 
@@ -77,7 +89,7 @@ export function validateComponentUsage(
       };
 
       if (!prop.values?.length) {
-        if (readLiteralAttributeValue(attribute) !== undefined) {
+        {
           unknown.push({
             ...location,
             reason: 'knowledge has no finite values',

@@ -344,3 +344,48 @@ pnpm archsync help
 npm 패키지에는 `bin`, `dist`, `examples`, `README.md`, `CHANGELOG.md`, `LICENSE`만 들어갑니다. `src/`, `tests/`, `.knowledge`는 패키지에 넣지 않습니다. 설계 문서는 git 저장소의 `docs/`에 둡니다.
 
 소스: [github.com/kiki9323/ArchSync](https://github.com/kiki9323/ArchSync)
+
+### Coverage and CI gate (work in progress)
+
+This work is preserved on a development branch and is not release-ready yet. See
+[`docs/TODO-extractor-validation-coverage.md`](docs/TODO-extractor-validation-coverage.md)
+for reproduced baselines, known regressions, and the remaining verification work.
+
+Extraction supports interfaces, type aliases (including intersections), and imported
+props resolved using the target project's tsconfig paths. Extraction uses the full
+parameter type, including inline object/intersection props, `ComponentProps`,
+`ComponentPropsWithRef`, `ComponentPropsWithoutRef`, and contextual `forwardRef`/`FC`
+props. Named props conventions remain a fallback. Unresolved types and unions that
+cannot be represented by the flat RAW schema remain skipped with a reason.
+
+Discovery also follows public compound object members such as `Tabs.Root` to their
+local JSX implementation. `name` identifies that implementation and `exportName`
+records the public member path. Props-free components are explicitly `no-props`;
+external React/Base UI props remain unexpanded native evidence.
+
+Sync JSON includes `coverage.discovered`, `coverage.extracted`, `coverage.skipped`
+and `coverage.failed`. Coverage counts successfully available components, including
+unchanged components; `summary.extracted` retains the number of extraction attempts
+in this run. Text and Markdown reports display the coverage count.
+
+Static reports expose `usages` (JSX elements), `checked` (prop checks), and `unknown`
+(unresolved prop checks or spreads). These have different units: checked/usages is
+not a coverage percentage. Renamed imports and barrel exports are resolved against
+Knowledge source files.
+
+Validation statuses: `failed` takes precedence; `partial` means checks succeeded
+but unknowns remain; `unknown` means only unresolved checks; `not-checked` means
+zero checks and zero unknowns; `passed` means at least one check and no failures or
+unknowns. Runtime checked counts only observed pass/fail comparisons.
+
+Use these commands in CI after generating Knowledge:
+
+```sh
+archsync sync --project . --strict --format json --output sync-report.json
+archsync check --project . --component Button --strict --format json --output check-report.json
+```
+
+`--strict` exits 1 for skipped/failed or empty discovery during sync, and for any
+validation status other than `passed`. Reports are written before the exit code is
+returned. Without `--strict`, failed/missing validation still exits 1; incomplete
+validation remains informational. Run check for each component required by CI.
