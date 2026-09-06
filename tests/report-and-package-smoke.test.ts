@@ -131,7 +131,7 @@ describe('package smoke', () => {
         ? packed[0]?.filename
         : packed.filename;
 
-      expect(tarballName).toMatch(/^archsync-fe-0\.1\.0\.tgz$/);
+      expect(tarballName).toMatch(/^archsync-fe-0\.1\.1\.tgz$/);
       const tarballPath = path.join(packageRoot, tarballName);
 
       const listing = await execFileAsync('tar', ['-tzf', tarballPath]);

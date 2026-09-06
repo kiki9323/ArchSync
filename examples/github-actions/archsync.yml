@@ -42,10 +42,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # After publish, use the scoped package name. Unscoped `archsync` is a different project.
-      #   pnpm add -D archsync-fe@^0.1.0
+      #   pnpm add -D archsync-fe@^0.1.1
       # Until publish, install from git or a local path instead.
       - name: Install ArchSync CLI
-        run: pnpm add -D archsync-fe@^0.1.0
+        run: pnpm add -D archsync-fe@^0.1.1
 
       - name: Sync Knowledge
         run: pnpm exec archsync sync --project .

@@ -1,6 +1,10 @@
-# ArchSync
+# archsync-fe
 
-ArchSync는 AI가 프론트엔드 프로젝트 규칙을 매번 다시 읽지 않아도 되게 만드는 보조 계층입니다.
+ArchSync의 npm 패키지입니다. AI가 프론트엔드 프로젝트 규칙을 매번 다시 읽지 않아도 되게 만드는 보조 계층입니다.
+
+- 패키지: [`archsync-fe`](https://www.npmjs.com/package/archsync-fe)
+- CLI: `archsync`
+- slash command: `/archsync`
 
 컴포넌트를 대신 발명하는 생성기가 아닙니다. 이미 코드에 있는 공통 UI API를 Knowledge로 고정하고, Coding Agent가 그 계약 안에서 구현·수정·검증하게 합니다.
 
@@ -93,7 +97,7 @@ ArchSync는 공통 UI를 새로 설계하지 않습니다. 디자인 시스템�
 
 **0.1.0**은 React/TypeScript 컴포넌트에서 Knowledge를 추출하고, 이를 AI context와 static/runtime validation에 재사용하는 첫 공개 버전입니다.
 
-1.0 이전이라 CLI·스키마·artifact 형태가 breaking 변경될 수 있습니다. 프로덕션 CI에 넣을 때는 버전을 pin 하세요 (`archsync-fe@0.1.0`).
+1.0 이전이라 CLI·스키마·artifact 형태가 breaking 변경될 수 있습니다. 프로덕션 CI에 넣을 때는 버전을 pin 하세요 (`archsync-fe@0.1.1`).
 
 이후 버전:
 
@@ -113,7 +117,7 @@ npm의 기존 [`archsync`](https://www.npmjs.com/package/archsync)는 다른 프
 
 ```bash
 # frontend repo
-pnpm add -D archsync-fe@^0.1.0
+pnpm add -D archsync-fe@^0.1.1
 
 pnpm exec archsync sync --project .
 pnpm exec archsync search "저장 버튼"
@@ -127,11 +131,9 @@ pnpm exec archsync watch --project .
 
 ### Git / 로컬 개발
 
-소스는 비공개 저장소에 둘 수 있습니다. 접근 권한이 있는 경우에만 clone 됩니다.
-
 ```bash
-git clone git@github.com:kiki9323/ArchSync.git archsync
-cd archsync
+git clone https://github.com/kiki9323/ArchSync.git archsync-fe
+cd archsync-fe
 pnpm install
 pnpm build
 ```
@@ -151,7 +153,7 @@ pnpm exec tsx src/cli.ts sync --project /absolute/path/to/your-frontend
 Knowledge는 프론트엔드 프로젝트 루트에 기록됩니다. MCP와 CLI의 `projectPath`/`--project`도 항상 이 경로를 가리켜야 합니다.
 
 ```bash
-npx archsync sync --project .
+npx archsync-fe sync --project .
 ```
 
 기본 탐색 범위는 `src/components/ui`와 `src/components/shared`입니다. 변경이 필요하면 프론트엔드 루트에 `archsync.config.json`을 둡니다.
@@ -176,13 +178,13 @@ npx archsync sync --project .
 .knowledge/manifest.json                # incremental sync metadata (생성물)
 ```
 
-`npx archsync sync`는 incremental입니다. fingerprint가 같은 component는 extraction을 건너뜁니다.
+`npx archsync-fe sync`는 incremental입니다. fingerprint가 같은 component는 extraction을 건너뜁니다.
 component source나 직접 local type dependency가 바뀌면 해당 component만 다시 추출합니다.
 
 파일 변경을 계속 반영하려면:
 
 ```bash
-npx archsync watch --project .
+npx archsync-fe watch --project .
 ```
 
 watch는 incremental sync API만 호출합니다. validation을 자동 실행하지는 않습니다.
@@ -250,7 +252,7 @@ Settings → MCP에 추가하거나, 사용자/프로젝트 `mcp.json`에 등록
 }
 ```
 
-publish 전이면 ArchSync checkout에서 `pnpm --dir /absolute/path/to/archsync archsync mcp`를 사용합니다.
+로컬 checkout에서는 `pnpm --dir /absolute/path/to/archsync-fe archsync mcp`를 사용합니다.
 
 등록 후 Cursor를 다시 열고, Agent 도구 목록에 위 세 tool이 보이는지 확인합니다.
 
@@ -276,15 +278,15 @@ MCP만 등록되어 있어도 Agent에게 tool을 직접 요청할 수 있습니
 .cursor/commands/archsync.md
 ```
 
-원본 위치는 `archsync/.cursor/commands/archsync.md`입니다.
+원본 위치는 이 저장소의 `.cursor/commands/archsync.md`입니다.
 
 이 파일에는 특정 제품의 variant나 size를 넣지 않습니다. Agent가 MCP로 Knowledge를 조회하도록 흐름만 정의합니다.
 
 | Agent        | 경로                                               |
 | ------------ | -------------------------------------------------- |
-| Cursor skill | `archsync/.cursor/skills/archsync/SKILL.md`        |
-| Claude Code  | `archsync/.claude/commands/archsync.md`            |
-| Codex        | `archsync/adapters/codex/skills/archsync/SKILL.md` |
+| Cursor skill | `.cursor/skills/archsync/SKILL.md`        |
+| Claude Code  | `.claude/commands/archsync.md`            |
+| Codex        | `adapters/codex/skills/archsync/SKILL.md` |
 
 ## 사용 흐름
 
@@ -341,4 +343,4 @@ pnpm archsync help
 
 npm 패키지에는 `bin`, `dist`, `examples`, `README.md`, `CHANGELOG.md`, `LICENSE`만 들어갑니다. `src/`, `tests/`, `.knowledge`는 패키지에 넣지 않습니다. 설계 문서는 git 저장소의 `docs/`에 둡니다.
 
-소스 git을 비공개로 두어도 npm public 패키지는 올릴 수 있습니다. 그때 공개되는 것은 tarball 내용이지 GitHub 저장소 전체가 아닙니다.
+소스: [github.com/kiki9323/ArchSync](https://github.com/kiki9323/ArchSync)

@@ -1,6 +1,6 @@
 {
   "name": "archsync-fe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Extract frontend component Knowledge and help coding agents implement and validate against it.",
   "type": "module",
   "bin": {

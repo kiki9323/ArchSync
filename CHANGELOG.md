@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+README를 npm 패키지 이름 `archsync-fe`에 맞춘다. 제품 이름 ArchSync와 CLI `archsync`는 그대로 둔다.
+
 ## 0.1.0
 
 ArchSync 0.1.0은 React/TypeScript 컴포넌트에서 Knowledge를 추출하고, 이를 AI context와 static/runtime validation에 재사용하는 developer tooling의 첫 공개 버전이다.
