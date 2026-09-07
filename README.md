@@ -364,9 +364,9 @@ records the public member path. Props-free components are explicitly `no-props`;
 external React/Base UI props remain unexpanded native evidence.
 
 Sync JSON includes `coverage.discovered`, `coverage.extracted`, `coverage.skipped`
-and `coverage.failed`. Coverage counts successfully available components, including
-unchanged components; `summary.extracted` retains the number of extraction attempts
-in this run. Text and Markdown reports display the coverage count.
+and `coverage.failed`. Those fields count Knowledge JSON that was written, including
+unchanged components and documents with zero custom props. They are not a percentage
+of agent-usable contracts. `summary.extracted` is extraction attempts in this run.
 
 Static reports expose `usages` (JSX elements), `checked` (prop checks), and `unknown`
 (unresolved prop checks or spreads). These have different units: checked/usages is
@@ -378,14 +378,19 @@ but unknowns remain; `unknown` means only unresolved checks; `not-checked` means
 zero checks and zero unknowns; `passed` means at least one check and no failures or
 unknowns. Runtime checked counts only observed pass/fail comparisons.
 
-Use these commands in CI after generating Knowledge:
+The supported PR template is [`examples/github-actions/archsync.yml`](examples/github-actions/archsync.yml).
+It runs `sync` then `check` **without** `--strict`.
 
-```sh
-archsync sync --project . --strict --format json --output sync-report.json
-archsync check --project . --component Button --strict --format json --output check-report.json
-```
+`--strict` is an optional policy layer, not the default gate. It does not change
+validation status. It only exits 1 when sync skipped/failed or discovered nothing,
+or when check/validate status is anything other than `passed`. Reports are still
+written first.
 
-`--strict` exits 1 for skipped/failed or empty discovery during sync, and for any
-validation status other than `passed`. Reports are written before the exit code is
-returned. Without `--strict`, failed/missing validation still exits 1; incomplete
-validation remains informational. Run check for each component required by CI.
+Do not put `archsync check --component Button --strict` in CI until the team
+explicitly wants incomplete coverage to fail the build. `partial` is the expected
+status when a component has boolean / `ReactNode` props or spreads: those checks
+are unknown by design. On deeps-www, Button is `partial`, so `--strict` always
+exits 1 on otherwise valid usage.
+
+Without `--strict`, failed/missing validation still exits 1; `partial` / `unknown`
+/ `not-checked` stay informational. Run check for each component required by CI.

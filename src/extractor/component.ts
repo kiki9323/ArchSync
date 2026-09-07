@@ -269,11 +269,68 @@ export function extractComponent(input: ExtractComponentInput): ComponentRaw {
   }
   if (props.type) collectNative(props.type, propsInterface, props.location.getText());
 
+  /**
+   * Walks an interface's own `extends` heritage looking for a project (non-external)
+   * declaration of `propertyName`.
+   *
+   * Needed because `interface X extends Native, ProjectBase {}` (no own body) does not
+   * merge same-named heritage properties the way an intersection type does: TypeScript
+   * exposes only ONE declaration for the property, from whichever heritage clause is
+   * listed first. If that happens to be the native/external one, the project's own
+   * narrower declaration is invisible via `type.getProperties()` even though it is
+   * still present in the source — we have to find it ourselves.
+   */
+  function findProjectPropertyOverride(
+    interfaceDeclaration: import('ts-morph').InterfaceDeclaration,
+    propertyName: string,
+    visited: Set<import('ts-morph').InterfaceDeclaration> = new Set(),
+  ): import('ts-morph').PropertySignature | undefined {
+    if (visited.has(interfaceDeclaration)) return undefined;
+    visited.add(interfaceDeclaration);
+
+    for (const heritage of interfaceDeclaration.getExtends()) {
+      const heritageSymbol = heritage.getType().getSymbol() ?? heritage.getType().getAliasSymbol();
+      const heritageDeclaration = heritageSymbol?.getDeclarations()[0];
+      if (!heritageDeclaration || isExternalSource(projectRoot, heritageDeclaration.getSourceFile().getFilePath())) continue;
+      if (!Node.isInterfaceDeclaration(heritageDeclaration)) continue;
+
+      const ownProperty = heritageDeclaration.getProperty(propertyName);
+      if (ownProperty) return ownProperty;
+
+      const nested = findProjectPropertyOverride(heritageDeclaration, propertyName, visited);
+      if (nested) return nested;
+    }
+
+    return undefined;
+  }
+  const propsInterfaceDeclaration = props.type?.getSymbol()?.getDeclarations().find(Node.isInterfaceDeclaration);
+
   // Resolve the complete type, including aliases, intersections and inherited props.
+  //
+  // For an intersection type (e.g. `ProjectVariants & React.ButtonHTMLAttributes<...>`),
+  // a name collision (both sides declaring `color`) makes the checker merge the two
+  // PropertySignatures into one symbol whose declarations() are ordered by intersection
+  // position, not by precedence. Picking declarations()[0] blindly meant a native/external
+  // declaration ordered first could hide the project's own declaration entirely, silently
+  // dropping the prop instead of narrowing it. Explicit project declarations must win over
+  // native ones regardless of intersection order, so prefer the first non-external
+  // declaration and only fall back to an external one when the project declares nothing.
   for (const symbol of (props.type?.getProperties() ?? [])) {
-    const property = symbol.getDeclarations()[0];
+    const declarations = symbol.getDeclarations();
+    let property = declarations.find((declaration) => !isExternalSource(projectRoot, declaration.getSourceFile().getFilePath()));
+    let overrideType: Type | undefined;
+
+    if (!property && propsInterfaceDeclaration) {
+      const override = findProjectPropertyOverride(propsInterfaceDeclaration, symbol.getName());
+      if (override) {
+        property = override;
+        overrideType = override.getType();
+      }
+    }
+
+    property ??= declarations[0];
     if (!property || isExternalSource(projectRoot, property.getSourceFile().getFilePath())) continue;
-    const type = symbol.getTypeAtLocation(propsInterface);
+    const type = overrideType ?? symbol.getTypeAtLocation(propsInterface);
     customProps.push({
       name: symbol.getName(),
       declaredType: Node.isPropertySignature(property) ? property.getTypeNode()?.getText() ?? 'unknown' : type.getText(property),

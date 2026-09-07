@@ -18,6 +18,8 @@ beforeEach(async () => {
     export type ComponentPropsWithRef<T extends ((...args: any[]) => any) | 'button'> = ComponentProps<T> & { ref?: unknown };
     export interface FC<P> { (props: P): any }
     export function forwardRef<R, P>(render: (props: P, ref: R) => any): (props: P) => any;
+    export interface HTMLAttributes<T> { color?: string; hidden?: boolean; }
+    export interface ButtonHTMLAttributes<T> extends HTMLAttributes<T> { disabled?: boolean; }
   `);
 });
 afterEach(async () => { await fs.rm(projectRoot, { recursive: true, force: true }); });
@@ -94,6 +96,87 @@ it('separates no props from unresolved or unsupported props', async () => {
     expect(() => extract(name)).toThrow();
   }
   expect(extract('Empty').customProps).toEqual([]);
+});
+
+it('prefers an explicit project declaration over a colliding native/external one', async () => {
+  await source(`import * as React from 'react';
+    type ButtonVariants = { color?: 'red' | 'blue'; size?: 'sm' | 'lg' };
+    export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & ButtonVariants;
+    export function Button({ color = 'red', size = 'sm' }: ButtonProps) { return <button /> }`);
+  const raw = extract('Button');
+  expect(raw.customProps.find((p) => p.name === 'color')).toMatchObject({
+    declaredType: "'red' | 'blue'",
+    values: ['red', 'blue'],
+    defaultValue: 'red',
+    source: 'src/component.tsx',
+  });
+  expect(raw.customProps.find((p) => p.name === 'size')).toMatchObject({
+    values: ['sm', 'lg'],
+  });
+});
+
+it('prefers the project declaration regardless of intersection order', async () => {
+  await source(`import * as React from 'react';
+    type ButtonVariants = { size?: 'sm' | 'lg' };
+    export type ButtonProps = ButtonVariants & React.ButtonHTMLAttributes<HTMLButtonElement>;
+    export function Button({ size = 'sm' }: ButtonProps) { return <button /> }`);
+  expect(extract('Button').customProps.find((p) => p.name === 'size')).toMatchObject({
+    values: ['sm', 'lg'],
+  });
+});
+
+it('keeps native evidence when the project declares no override', async () => {
+  await source(`import * as React from 'react';
+    export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { size?: 'sm' | 'lg' };
+    export function Button({ size = 'sm' }: ButtonProps) { return <button /> }`);
+  const raw = extract('Button');
+  expect(raw.customProps.some((p) => p.name === 'disabled')).toBe(false);
+  expect(raw.nativeProps).toEqual([
+    expect.objectContaining({ source: 'React.ButtonHTMLAttributes<HTMLButtonElement>' }),
+  ]);
+});
+
+it('recovers a project override hidden behind interface multi-extends shadowing (the real Button shape)', async () => {
+  // `interface X extends Native, Project {}` (empty body) does not merge a colliding
+  // property into a multi-declaration symbol the way `Native & Project` intersection
+  // does — TypeScript exposes only the first heritage clause's declaration. This is
+  // the actual deeps-www Button.tsx shape and is not covered by the intersection (`&`)
+  // cases above, which take a different code path (declarations().find, not
+  // findProjectPropertyOverride's own extends-walk).
+  await fs.writeFile(
+    path.join(projectRoot, 'src/variants.ts'),
+    `export interface CommonButtonProps { color?: 'ghost' | 'primary'; }`,
+  );
+  await source(`import * as React from 'react';
+    import type { CommonButtonProps } from './variants';
+    export interface ButtonProps
+      extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+        CommonButtonProps {}
+    export function Button({ color = 'ghost' }: ButtonProps) { return <button /> }`);
+  const raw = extract('Button');
+  expect(raw.customProps.find((p) => p.name === 'color')).toMatchObject({
+    values: ['ghost', 'primary'],
+    defaultValue: 'ghost',
+    source: 'src/variants.ts',
+  });
+  expect(raw.nativeProps).toEqual([
+    expect.objectContaining({ source: 'React.ButtonHTMLAttributes<HTMLButtonElement>' }),
+  ]);
+});
+
+it('prefers an imported project declaration over a colliding native one', async () => {
+  await fs.writeFile(
+    path.join(projectRoot, 'src/variants.ts'),
+    `export type ButtonVariants = { color?: 'red' | 'blue' };`,
+  );
+  await source(`import * as React from 'react';
+    import type { ButtonVariants } from './variants';
+    export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & ButtonVariants;
+    export function Button({ color = 'red' }: ButtonProps) { return <button /> }`);
+  expect(extract('Button').customProps.find((p) => p.name === 'color')).toMatchObject({
+    values: ['red', 'blue'],
+    source: 'src/variants.ts',
+  });
 });
 
 it('keeps usage evidence inside the extracted component in compound modules', async () => {

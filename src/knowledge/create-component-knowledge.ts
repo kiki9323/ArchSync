@@ -5,7 +5,19 @@ import {
 import type { ComponentRaw } from '../schema/component-raw.js';
 import { transformPropBehavior } from './transform-prop-behavior.js';
 
-export function createComponentKnowledge(raw: ComponentRaw): ComponentKnowledge {
+export interface CreateComponentKnowledgeOptions {
+  /**
+   * Public JSX identity from discovery-time export/composition AST
+   * (e.g. `Dialog.Root` for an implementation named `DialogRoot`).
+   * Pass only when it was actually resolved from real AST, never guessed.
+   */
+  exportName?: string;
+}
+
+export function createComponentKnowledge(
+  raw: ComponentRaw,
+  options: CreateComponentKnowledgeOptions = {},
+): ComponentKnowledge {
   const sources = new Set<string>();
 
   sources.add(raw.source);
@@ -27,6 +39,8 @@ export function createComponentKnowledge(raw: ComponentRaw): ComponentKnowledge 
 
   const knowledge = {
     component: raw.component,
+    exportName:
+      options.exportName && options.exportName !== raw.component ? options.exportName : undefined,
     nativeProps: raw.nativeProps.map((nativeProp) => ({
       source: nativeProp.source,
     })),

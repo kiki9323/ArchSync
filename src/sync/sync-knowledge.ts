@@ -234,7 +234,7 @@ async function extractAndWrite(input: {
     raw.component,
   );
   const knowledge = applyComponentSearchAliases(
-    createComponentKnowledge(raw),
+    createComponentKnowledge(raw, { exportName: candidate.exportName }),
     {
       configAliases: aliases,
       previousKnowledge,

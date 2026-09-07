@@ -36,6 +36,15 @@ export const ComponentSearchMetadataSchema = z.object({
 export const ComponentKnowledgeSchema = z.object({
   component: z.string(),
 
+  /**
+   * Public JSX identity when it differs from the implementation export name,
+   * e.g. a compound member rendered as `<Dialog.Root>` while the implementation
+   * is named `DialogRoot`. Resolved from real export/composition AST at discovery
+   * time (see discoverComponents), never guessed from the implementation name.
+   * Omitted when the public identity equals `component`.
+   */
+  exportName: z.string().optional(),
+
   // 이것도 나중에 LLM enrichment 가능
   summary: z.string().optional(),
 
