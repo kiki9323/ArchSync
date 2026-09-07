@@ -44,7 +44,7 @@ export async function validateProjectUsage(
   const knowledge = knowledgeResult.knowledge;
   const files = input.file
     ? [path.resolve(projectRoot, input.file)]
-    : await collectSourceFiles(path.join(projectRoot, 'src'));
+    : await collectSourceFiles(projectRoot);
 
   const project = new Project({
     ...(existsSync(path.join(projectRoot, 'tsconfig.json')) ? { tsConfigFilePath: path.join(projectRoot, 'tsconfig.json') } : {}),
@@ -92,7 +92,8 @@ export async function validateProjectUsage(
   };
 }
 
-async function collectSourceFiles(root: string): Promise<string[]> {
+export async function collectSourceFiles(projectRoot: string): Promise<string[]> {
+  const root = path.join(path.resolve(projectRoot), 'src');
   const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => {
     throw new Error(`Source directory not found: ${root}`);
   });
@@ -102,7 +103,27 @@ async function collectSourceFiles(root: string): Promise<string[]> {
     const fullPath = path.join(root, entry.name);
 
     if (entry.isDirectory()) {
-      files.push(...(await collectSourceFiles(fullPath)));
+      files.push(...(await collectSourceFilesUnder(fullPath)));
+      continue;
+    }
+
+    if (entry.isFile() && /\.(tsx|jsx)$/.test(entry.name)) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+async function collectSourceFilesUnder(root: string): Promise<string[]> {
+  const entries = await fs.readdir(root, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(root, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...(await collectSourceFilesUnder(fullPath)));
       continue;
     }
 

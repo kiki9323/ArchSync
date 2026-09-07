@@ -78,6 +78,7 @@ CODE가 원본이다. 소비자가 읽는 기계 SSOT는 Knowledge JSON뿐이다
 | Knowledge JSON | persistent SSOT | `{target}/.knowledge/components/` |
 | RAW evidence | cache | `{target}/.knowledge/raw/components/` |
 | Markdown | on-demand 파생 뷰 | `archsync docs` |
+| Static HTML board | ephemeral | `archsync check --all --format html` — QA 레인은 유한값 리터럴만. Agent status와 별개 |
 | sync manifest | generated metadata | `{target}/.knowledge/manifest.json` |
 | sync / report / observation / validation | ephemeral | 저장하지 않음 |
 

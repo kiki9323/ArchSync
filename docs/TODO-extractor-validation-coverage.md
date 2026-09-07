@@ -176,6 +176,17 @@ Real deeps-www `check Button --strict` exits 1 because Button is `partial`. Fini
 5. ~~Decide compound Knowledge: member implementation JSON vs public container vs making `<Dialog.Root>` match.~~ **`<Dialog.Root>` usage detection fixed** (`src/validator/validate-component-usage.ts` + `ComponentKnowledge.exportName`); real usages now non-zero on all four measured files. **Still open:** whether compound members need a public-container-level Knowledge model (`Dialog`, `Popover` as first-class entries), since most member Knowledge is still empty custom props (see empty-custom-props table above) even though usage matching now works.
 6. Decide whether empty `ComponentProps` JSON should count as extracted success or a distinct “native-only / not agent-usable” bucket.
 7. Schema/formatting review before release.
+8. Static board QA lane now paints green when finite-value literals passed, even if other props are unknown. Agent `status` is unchanged (`partial` is not pass). Still open: filter UX and `--file` scope.
+
+## Static board draft
+
+`archsync check --all --format html` walks `src` once. It is not a second SSOT.
+
+- Red: finite-value literal outside Knowledge values
+- Green: at least one finite-value literal passed, and none failed. Unknown props stay listed, they do not veto the row
+- Gray: nothing checkable (empty contract, no finite values, unused, open values only)
+
+Generate locally, e.g. `reports/deeps-www-coverage/archsync-board.html`.
 
 ## Integration blockers (separate from extractor measurement)
 

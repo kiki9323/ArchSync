@@ -38,6 +38,7 @@ describe('ArchSync CLI surface', () => {
       expect(lines.join('\n')).toContain('archsync <command>');
       expect(lines.join('\n')).toContain('pnpm exec archsync sync --project .');
       expect(lines.join('\n')).toContain('pnpm exec archsync check');
+      expect(lines.join('\n')).toContain('pnpm exec archsync check --all --project . --format html');
       expect(lines.join('\n')).toContain('v0.x is pre-1.0');
     } finally {
       console.log = original;

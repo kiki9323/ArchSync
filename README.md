@@ -201,9 +201,10 @@ pnpm exec archsync docs Button --project .
 pnpm exec archsync check Button --project . --format text
 pnpm exec archsync check Button --project . --format markdown
 pnpm exec archsync check Button --project . --format markdown --output archsync-report.md
+pnpm exec archsync check --all --project . --format html
 ```
 
-`--format markdown` 출력은 GitHub Step Summary에 붙이기 좋습니다. report는 ephemeral이며 Knowledge SSOT가 아닙니다.
+`--format markdown` 출력은 GitHub Step Summary에 붙이기 좋습니다. report와 static board는 ephemeral이며 Knowledge SSOT가 아닙니다. `check --all`은 컴포넌트마다 프로젝트를 다시 열지 않습니다. 보드의 초록은 유한값 리터럴 통과이고, Agent `partial`을 통과로 바꾸지 않습니다.
 
 `.knowledge/components`가 없으면 검색과 검증은 `no-match` 또는 `missing`을 반환합니다. MCP를 연결하기 전에 sync를 먼저 실행해야 합니다.
 

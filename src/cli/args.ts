@@ -96,14 +96,16 @@ Commands:
 Common options:
   --strict            Fail sync/check/validate on incomplete coverage
   --project <path>     Frontend project root (default: .)
-  --format <text|json|markdown>
-  --output <file>      Write report to a file (check)
+  --all               Index every Knowledge JSON in one static board
+  --format <text|json|markdown|html>
+  --output <file>      Write report to a file (html defaults to archsync-board.html)
 
 Examples:
   pnpm exec archsync sync --project .
   pnpm exec archsync search "저장 버튼"
   pnpm exec archsync context Button
   pnpm exec archsync check --component Button --format markdown
+  pnpm exec archsync check --all --project . --format html
   pnpm exec archsync validate --component Button --file src/app.tsx
   pnpm exec archsync docs Button
   pnpm exec archsync watch --project .

@@ -22,6 +22,32 @@ export type ReadComponentKnowledgeResult =
   | MissingComponentKnowledge;
 
 /**
+ * `.knowledge/components/*.json` 파일 이름만 나열한다.
+ * Knowledge를 해석하지 않는다.
+ */
+export async function listComponentKnowledgeNames(
+  projectPath: string,
+): Promise<string[]> {
+  const projectRoot = path.resolve(projectPath);
+  const directory = path.join(projectRoot, '.knowledge', 'components');
+
+  try {
+    const entries = await fs.readdir(directory);
+    return entries
+      .filter((entry) => entry.endsWith('.json'))
+      .map((entry) => entry.slice(0, -'.json'.length))
+      .filter(isComponentName)
+      .sort();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+/**
  * Knowledge 소비자들의 공통 SSOT reader.
  * Source / RAW / Markdown을 보지 않고 .knowledge/components의 JSON만 읽는다.
  */

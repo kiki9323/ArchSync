@@ -8,7 +8,9 @@ import {
   renderValidationReport,
   type ReportFormat,
 } from '../report/render-archsync-report.js';
+import type { StaticBoardFormat } from '../report/render-static-board.js';
 import { loadSyncComponentRoots } from '../sync/load-sync-config.js';
+import type { StaticBoardResult } from '../validator/validate-all-project-usage.js';
 import { syncKnowledge } from '../sync/sync-knowledge.js';
 import {
   flag,
@@ -110,6 +112,10 @@ export async function runWatchCommand(argv: string[]): Promise<number> {
 }
 
 export async function runValidateCommand(argv: string[]): Promise<number> {
+  if (hasFlag(argv, '--all')) {
+    return runStaticBoardCommand(argv, 'json');
+  }
+
   const result = await runValidation(argv);
   const format = resolveOutputFormat(argv, 'json');
 
@@ -122,12 +128,50 @@ export async function runValidateCommand(argv: string[]): Promise<number> {
  * Human-readable check. Same validator as validate, different renderer.
  */
 export async function runCheckCommand(argv: string[]): Promise<number> {
+  if (hasFlag(argv, '--all')) {
+    return runStaticBoardCommand(argv, 'html');
+  }
+
   const result = await runValidation(argv);
   const format = resolveOutputFormat(argv, 'text');
 
   await writeCommandOutput(argv, formatValidation(result, format));
 
   return hasFlag(argv, '--strict') && result.status !== 'passed' ? 1 : validationExitCode(result);
+}
+
+/**
+ * Knowledge JSON을 인덱싱한 ephemeral 보드. SSOT가 아니다.
+ */
+async function runStaticBoardCommand(
+  argv: string[],
+  fallback: StaticBoardFormat,
+): Promise<number> {
+  const { validateAllProjectUsage } = await import(
+    '../validator/validate-all-project-usage.js'
+  );
+  const { renderStaticBoard } = await import('../report/render-static-board.js');
+  const projectPath = path.resolve(resolveProjectPath(argv));
+  const board = await validateAllProjectUsage(projectPath);
+  const format = resolveBoardFormat(argv, fallback);
+  const content = renderStaticBoard(board, format);
+  const output = flag(argv, '--output') ?? (format === 'html' ? 'archsync-board.html' : undefined);
+
+  if (output) {
+    const absolute = path.resolve(output);
+    await fs.mkdir(path.dirname(absolute), { recursive: true });
+    await fs.writeFile(absolute, `${content.trimEnd()}\n`, 'utf8');
+
+    if (hasFlag(argv, '--print')) {
+      console.log(content);
+    } else {
+      console.log(`wrote ${absolute}`);
+    }
+  } else {
+    console.log(content);
+  }
+
+  return boardExitCode(board, hasFlag(argv, '--strict'));
 }
 
 export async function runContextCommand(argv: string[]): Promise<number> {
@@ -264,6 +308,31 @@ function resolveOutputFormat(
   }
 
   throw new Error(`Unsupported --format: ${value}`);
+}
+
+function resolveBoardFormat(
+  argv: string[],
+  fallback: StaticBoardFormat,
+): StaticBoardFormat {
+  const value = flag(argv, '--format') ?? fallback;
+
+  if (value === 'text' || value === 'json' || value === 'markdown' || value === 'html') {
+    return value;
+  }
+
+  throw new Error(`Unsupported --format: ${value}`);
+}
+
+function boardExitCode(board: StaticBoardResult, strict: boolean): number {
+  if (board.rows.some((row) => row.status === 'failed')) {
+    return 1;
+  }
+
+  if (strict && board.rows.some((row) => row.status !== 'passed')) {
+    return 1;
+  }
+
+  return 0;
 }
 
 function formatValidation(
